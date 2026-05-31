@@ -1,0 +1,39 @@
+/* ============================================================
+   MiniBoard.css - 상대방 미니보드 스타일
+   담당: 개발자 D (UI/디자인 담당)
+   ============================================================ */
+
+.mini-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--bg-glass-border);
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  transition: all var(--transition-normal);
+}
+
+.mini-board.eliminated {
+  opacity: 0.5;
+  border-color: rgba(255, 48, 48, 0.3);
+}
+
+.mini-board-canvas {
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.mini-board-name {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

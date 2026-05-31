@@ -1,0 +1,19 @@
+{
+  "name": "online-tetris-server",
+  "version": "1.0.0",
+  "description": "4-Player Online Tetris - Game Server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

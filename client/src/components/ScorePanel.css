@@ -1,0 +1,87 @@
+/* ============================================================
+   ScorePanel.css - 점수 패널 스타일
+   담당: 개발자 D (UI/디자인 담당)
+   ============================================================ */
+
+.score-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 160px;
+}
+
+.panel-section {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  width: 100%;
+  text-align: center;
+}
+
+.stats-section {
+  align-items: stretch;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat-label {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-item.combo .stat-label {
+  color: var(--neon-orange);
+}
+
+.combo-value {
+  color: var(--neon-orange);
+  text-shadow: 0 0 10px rgba(240, 160, 0, 0.5);
+  animation: pulse-glow 0.5s ease-in-out infinite;
+}
+
+/* Next Pieces */
+.next-pieces {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.piece-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.piece-preview.small {
+  min-height: 28px;
+  opacity: 0.7;
+}
+
+.piece-preview canvas {
+  display: block;
+}

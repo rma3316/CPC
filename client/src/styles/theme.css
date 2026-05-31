@@ -1,0 +1,287 @@
+/* ============================================================
+   theme.css - 네온 다크 디자인 시스템
+   담당: 개발자 D (UI/디자인 담당)
+   ============================================================ */
+
+/* ---------- Google Fonts ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ---------- CSS 변수 (Design Tokens) ---------- */
+:root {
+  /* 배경 & 서피스 */
+  --bg-primary: #0a0a1a;
+  --bg-secondary: #0f0f2a;
+  --bg-surface: rgba(15, 15, 42, 0.85);
+  --bg-surface-hover: rgba(25, 25, 60, 0.9);
+  --bg-glass: rgba(255, 255, 255, 0.04);
+  --bg-glass-border: rgba(255, 255, 255, 0.08);
+
+  /* 테트리스 보드 */
+  --board-bg: rgba(0, 0, 0, 0.6);
+  --board-grid: rgba(255, 255, 255, 0.03);
+  --board-border: rgba(100, 100, 255, 0.15);
+
+  /* 텍스트 */
+  --text-primary: #e8e8ff;
+  --text-secondary: #8888bb;
+  --text-muted: #555588;
+
+  /* 네온 액센트 */
+  --neon-cyan: #00f0f0;
+  --neon-blue: #4040ff;
+  --neon-purple: #a000f0;
+  --neon-pink: #ff00aa;
+  --neon-green: #00ff88;
+  --neon-yellow: #f0f000;
+  --neon-orange: #f0a000;
+  --neon-red: #ff3030;
+
+  /* 글로우 효과 */
+  --glow-cyan: 0 0 10px #00f0f044, 0 0 30px #00f0f022;
+  --glow-purple: 0 0 10px #a000f044, 0 0 30px #a000f022;
+  --glow-blue: 0 0 10px #4040ff44, 0 0 30px #4040ff22;
+
+  /* 그래디언트 */
+  --gradient-accent: linear-gradient(135deg, #4040ff, #a000f0, #ff00aa);
+  --gradient-surface: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%);
+
+  /* 레이아웃 */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* 트랜지션 */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* 타이포그래피 */
+  --font-display: 'Orbitron', monospace;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---------- 글로벌 리셋 ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- 글래스모피즘 카드 ---------- */
+.glass-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-card-sm {
+  background: var(--bg-glass);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ---------- 네온 버튼 ---------- */
+.btn-neon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border: 1px solid var(--neon-cyan);
+  border-radius: var(--radius-md);
+  background: rgba(0, 240, 240, 0.08);
+  color: var(--neon-cyan);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-neon:hover {
+  background: rgba(0, 240, 240, 0.18);
+  box-shadow: 0 0 15px #00f0f066, 0 0 45px #00f0f033;
+  transform: translateY(-2px);
+}
+
+.btn-neon:active {
+  transform: translateY(0);
+}
+
+.btn-neon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-neon.purple {
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  background: rgba(160, 0, 240, 0.08);
+  box-shadow: var(--glow-purple);
+}
+
+.btn-neon.purple:hover {
+  background: rgba(160, 0, 240, 0.18);
+  box-shadow: 0 0 15px #a000f066, 0 0 45px #a000f033;
+}
+
+.btn-neon.green {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  background: rgba(0, 255, 136, 0.08);
+  box-shadow: 0 0 10px #00ff8844, 0 0 30px #00ff8822;
+}
+
+.btn-neon.green:hover {
+  background: rgba(0, 255, 136, 0.18);
+  box-shadow: 0 0 15px #00ff8866, 0 0 45px #00ff8833;
+}
+
+/* ---------- 네온 입력 필드 ---------- */
+.input-neon {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  outline: none;
+  transition: all var(--transition-normal);
+}
+
+.input-neon:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.input-neon::placeholder {
+  color: var(--text-muted);
+}
+
+/* ---------- 타이틀 ---------- */
+.title-glow {
+  font-family: var(--font-display);
+  font-weight: 900;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(100, 0, 240, 0.3));
+}
+
+/* ---------- 애니메이션 ---------- */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes line-clear-flash {
+  0% {
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.6);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* ---------- 배경 파티클(사이버펑크 그리드) ---------- */
+.cyber-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(64, 64, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(160, 0, 240, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 240, 240, 0.04) 0%, transparent 50%),
+    var(--bg-primary);
+}
+
+/* 그리드 오버레이 */
+.cyber-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+/* ---------- 스크롤바 ---------- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

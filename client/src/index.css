@@ -1,0 +1,18 @@
+/* ============================================================
+   index.css - 추가 글로벌 스타일 (theme.css 이후 적용)
+   ============================================================ */
+
+/* 이 파일은 theme.css의 디자인 시스템 위에
+   프로젝트 전용 글로벌 스타일을 추가하는 역할입니다. */
+
+/* Selection 색상 */
+::selection {
+  background: rgba(0, 240, 240, 0.3);
+  color: var(--text-primary);
+}
+
+/* 포커스 아웃라인 */
+:focus-visible {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
