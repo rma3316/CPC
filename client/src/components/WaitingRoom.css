@@ -44,7 +44,7 @@
 }
 
 .waiting-panel {
-  min-height: 350px;
+  height: 380px; /* 채팅이 늘어나도 부모가 커지지 않고 초기 크기 유지 */
 }
 
 .players-panel {
