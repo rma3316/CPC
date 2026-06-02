@@ -26,9 +26,12 @@ export default function WaitingRoom({
   onSendChat,
   onLeaveRoom,
   onClearChat,
+  onTransferHost,
+  onKickPlayer,
 }) {
   const myPlayer = room?.players?.find(p => p.id === myId);
   const isReady = myPlayer?.ready || false;
+  const isHost = room?.hostId === myId;
 
   return (
     <div className="waiting-room-container">
@@ -51,12 +54,19 @@ export default function WaitingRoom({
                 <li key={player.id} className="player-item">
                   <span className="player-number">{i + 1}</span>
                   <span className={`player-name-tag ${player.id === myId ? 'me' : ''}`}>
+                    {room?.hostId === player.id && <span className="host-badge">👑 </span>}
                     {player.nickname}
                     {player.id === myId && <span className="me-badge">나</span>}
                   </span>
                   <span className={`ready-badge ${player.ready ? 'ready' : ''}`}>
                     {player.ready ? '✔ READY' : '대기 중'}
                   </span>
+                  {isHost && player.id !== myId && (
+                    <div className="host-controls" style={{ marginLeft: '10px', display: 'flex', gap: '5px' }}>
+                      <button className="btn-neon small" onClick={() => onTransferHost(player.id)}>위임</button>
+                      <button className="btn-neon small red" onClick={() => onKickPlayer(player.id)}>추방</button>
+                    </div>
+                  )}
                 </li>
               ))}
               {/* 빈 슬롯 */}
@@ -76,7 +86,7 @@ export default function WaitingRoom({
               >
                 {isReady ? '✔ 준비 완료' : '준비'}
               </button>
-              {allReady && (
+              {isHost && allReady && (
                 <button
                   id="start-game-btn"
                   className="btn-neon purple"

@@ -36,7 +36,7 @@ import {
  * @param {Function} options.onStateUpdate - 상태 업데이트 시 콜백 (상대방에게 전송)
  * @returns {object}
  */
-export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
+export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY_BINDINGS } = {}) {
   const [board, setBoard] = useState(createBoard());
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -64,8 +64,17 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
   useEffect(() => { isGameOverRef.current = isGameOver; }, [isGameOver]);
   useEffect(() => { comboRef.current = combo; }, [combo]);
 
+  // ---------- 잠금 취소 ----------
+  const cancelLock = useCallback(() => {
+    if (lockTimerRef.current) {
+      clearTimeout(lockTimerRef.current);
+      lockTimerRef.current = null;
+    }
+  }, []);
+
   // ---------- 게임 시작 ----------
   const startGame = useCallback(() => {
+    cancelLock();
     const newBoard = createBoard();
     pieceQueueRef.current = new PieceQueue();
     lockResetsRef.current = 0;
@@ -112,11 +121,13 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     currentPieceRef.current = newPiece;
     setNextPieces(pieceQueueRef.current.preview(5));
     setCanHold(true);
+    cancelLock();
     lockResetsRef.current = 0;
   }, [onGameOver]);
 
   // ---------- 피스 고정 처리 ----------
   const lock = useCallback(() => {
+    cancelLock();
     const piece = currentPieceRef.current;
     const currentBoard = boardRef.current;
     if (!piece) return;
@@ -162,6 +173,14 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     spawnNext();
   }, [spawnNext, onLineCleared, onStateUpdate]);
 
+  // ---------- 락 딜레이 타이머 시작 ----------
+  const startLockTimer = useCallback(() => {
+    cancelLock();
+    lockTimerRef.current = setTimeout(() => {
+      lock();
+    }, LOCK_DELAY);
+  }, [lock, cancelLock]);
+
   // ---------- 이동 ----------
   const movePiece = useCallback((dx, dy) => {
     const piece = currentPieceRef.current;
@@ -175,21 +194,33 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
       setCurrentPiece(movedPiece);
       currentPieceRef.current = movedPiece;
 
-      // 잠금 딜레이 리셋 (수평 이동 시)
-      if (dx !== 0 && lockResetsRef.current < MAX_LOCK_RESETS) {
-        lockResetsRef.current++;
+      // 바닥 검사 (아래로 한 칸 더 갈 수 있는지)
+      const onGround = !isValidPosition(boardRef.current, movedPiece.shape, newX, newY + 1);
+
+      if (onGround) {
+        // 이동 시 타이머 리셋
+        if (lockResetsRef.current < MAX_LOCK_RESETS && (dx !== 0 || dy !== 0)) {
+          lockResetsRef.current++;
+          startLockTimer();
+        } else if (!lockTimerRef.current) {
+          startLockTimer();
+        }
+      } else {
+        cancelLock(); // 허공으로 나옴
       }
 
       return true;
     }
 
-    // 아래로 이동 불가 -> 잠금
+    // 아래로 이동 불가 -> 바닥에 닿음
     if (dy > 0) {
-      lock();
+      if (!lockTimerRef.current) {
+        startLockTimer();
+      }
     }
 
     return false;
-  }, [lock]);
+  }, [startLockTimer, cancelLock]);
 
   // ---------- 회전 ----------
   const rotate = useCallback((direction) => {
@@ -201,11 +232,18 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
       setCurrentPiece(rotated);
       currentPieceRef.current = rotated;
 
-      if (lockResetsRef.current < MAX_LOCK_RESETS) {
-        lockResetsRef.current++;
+      const onGround = !isValidPosition(boardRef.current, rotated.shape, rotated.x, rotated.y + 1);
+
+      if (onGround) {
+        if (lockResetsRef.current < MAX_LOCK_RESETS) {
+          lockResetsRef.current++;
+          startLockTimer();
+        }
+      } else {
+        cancelLock();
       }
     }
-  }, []);
+  }, [startLockTimer, cancelLock]);
 
   // ---------- 하드 드롭 ----------
   const hardDrop = useCallback(() => {
@@ -221,8 +259,9 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     // 점수 추가 (드롭 거리 * 2)
     setScore(prev => prev + (ghostY - piece.y) * 2);
 
+    cancelLock();
     lock();
-  }, [lock]);
+  }, [lock, cancelLock]);
 
   // ---------- 홀드 ----------
   const hold = useCallback(() => {
@@ -278,33 +317,37 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
 
     const handleKeyDown = (e) => {
       switch (e.key) {
-        case KEY_BINDINGS.MOVE_LEFT:
+        case keys.MOVE_LEFT:
           e.preventDefault();
           movePiece(-1, 0);
           break;
-        case KEY_BINDINGS.MOVE_RIGHT:
+        case keys.MOVE_RIGHT:
           e.preventDefault();
           movePiece(1, 0);
           break;
-        case KEY_BINDINGS.SOFT_DROP:
+        case keys.SOFT_DROP:
           e.preventDefault();
           movePiece(0, 1);
           break;
-        case KEY_BINDINGS.HARD_DROP:
+        case keys.HARD_DROP:
           e.preventDefault();
           hardDrop();
           break;
-        case KEY_BINDINGS.ROTATE_CW:
+        case keys.ROTATE_CW:
           e.preventDefault();
           rotate(1);
           break;
-        case KEY_BINDINGS.ROTATE_CCW:
+        case keys.ROTATE_CCW:
           e.preventDefault();
           rotate(-1);
           break;
-        case KEY_BINDINGS.HOLD:
+        case keys.HOLD:
           e.preventDefault();
           hold();
+          break;
+        case keys.RESET:
+          e.preventDefault();
+          startGame();
           break;
         default:
           break;
@@ -313,7 +356,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isGameOver, movePiece, hardDrop, rotate, hold]);
+  }, [isPlaying, isGameOver, movePiece, hardDrop, rotate, hold, startGame, keys]);
 
   // ---------- 고스트 피스 위치 ----------
   const ghostY = currentPiece

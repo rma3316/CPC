@@ -57,6 +57,7 @@ export const KEY_BINDINGS = {
   ROTATE_CW: 'ArrowUp',      // 시계 방향 회전
   ROTATE_CCW: 'z',            // 반시계 방향 회전
   HOLD: 'c',                  // Hold
+  RESET: 'r',                 // 게임 초기화
 };
 
 /** 테트로미노 색상 (인덱스별) */

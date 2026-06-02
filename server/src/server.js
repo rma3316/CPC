@@ -20,6 +20,8 @@ import {
   getRoomList,
   getRoom,
   findRoomBySocketId,
+  transferHost,
+  kickPlayer,
 } from './roomManager.js';
 
 import {
@@ -116,6 +118,36 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- 방장 위임 ---
+  socket.on('transfer_host', ({ targetId }) => {
+    const roomId = findRoomBySocketId(socket.id);
+    if (!roomId) return;
+    const room = transferHost(roomId, socket.id, targetId);
+    if (room) {
+      io.to(roomId).emit('room_updated', room);
+      io.emit('room_list_updated', getRoomList());
+    }
+  });
+
+  // --- 플레이어 추방 ---
+  socket.on('kick_player', ({ targetId }) => {
+    const roomId = findRoomBySocketId(socket.id);
+    if (!roomId) return;
+    const result = kickPlayer(roomId, socket.id, targetId);
+    if (result.success) {
+      // 추방당한 클라이언트에게 알림
+      io.to(targetId).emit('kicked');
+      io.to(roomId).emit('room_updated', result.room);
+      io.emit('room_list_updated', getRoomList());
+      
+      // 소켓 객체에 접근해서 room에서 내보내기
+      const targetSocket = io.sockets.sockets.get(targetId);
+      if (targetSocket) {
+        targetSocket.leave(roomId);
+      }
+    }
+  });
+
   // --- 플레이어 보드 상태 브로드캐스트 ---
   socket.on('player_state', (state) => {
     const roomId = findRoomBySocketId(socket.id);
@@ -208,6 +240,32 @@ io.on('connection', (socket) => {
       message,
       timestamp: Date.now(),
     });
+  });
+
+  // --- 방 나가기 ---
+  socket.on('leave_room', (callback) => {
+    const roomId = findRoomBySocketId(socket.id);
+    if (!roomId) {
+      if (callback) callback();
+      return;
+    }
+    const result = leaveRoom(roomId, socket.id);
+    if (!result.deleted && result.room) {
+      io.to(roomId).emit('room_updated', result.room);
+      // 게임 중이었다면 게임오버 처리
+      if (result.room.status === 'playing') {
+        const gameResult = playerGameOver(roomId, socket.id);
+        if (gameResult?.finished) {
+          io.to(roomId).emit('game_finished', {
+            winner: gameResult.winner,
+            room: gameResult.room,
+          });
+        }
+      }
+    }
+    socket.leave(roomId);
+    io.emit('room_list_updated', getRoomList());
+    if (callback) callback();
   });
 
   // --- 연결 해제 ---
