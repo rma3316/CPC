@@ -18,9 +18,43 @@ import './GameBoard.css';
  * @param {number[][]} props.board - 보드 상태
  * @param {object|null} props.currentPiece - 현재 피스
  * @param {number|null} props.ghostY - 고스트 피스 Y 위치
+ * @param {boolean} props.isPaused - 게임 일시정지 여부
+ * @param {Function} props.onPauseGame - 게임 일시정지 핸들러
+ * @param {Function} props.onResumeGame - 게임 재개 핸들러
  */
-export default function GameBoard({ board, currentPiece, ghostY }) {
+export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPauseGame, onResumeGame }) {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // 윈도우 포커스 감지 (화면 밖으로 나갔을 때)
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      if (onPauseGame) onPauseGame();
+    };
+    
+    // 필요시 포커스 복귀 이벤트도 처리할 수 있습니다.
+    // const handleWindowFocus = () => {
+    //   if (onResumeGame) onResumeGame();
+    // };
+
+    window.addEventListener('blur', handleWindowBlur);
+    // window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      // window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [onPauseGame, onResumeGame]);
+
+  // 보드 영역 포커스 아웃 감지 (게임 중 다른 UI 클릭 시)
+  const handleBoardBlur = () => {
+    if (onPauseGame) onPauseGame();
+  };
+
+  // 마우스 포인터가 게임창(보드) 내에서 벗어났을 때 감지
+  const handleMouseLeave = () => {
+    if (onPauseGame) onPauseGame();
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,13 +129,28 @@ export default function GameBoard({ board, currentPiece, ghostY }) {
   }, [board, currentPiece, ghostY]);
 
   return (
-    <div className="game-board-wrapper">
+    <div 
+      className="game-board-wrapper" 
+      ref={containerRef}
+      tabIndex={0} 
+      onBlur={handleBoardBlur}
+      onMouseLeave={handleMouseLeave}
+      style={{ outline: 'none' }} // 기본 포커스 아웃라인 제거 (D가 CSS로 처리 가능)
+    >
       <canvas
         ref={canvasRef}
         className="game-board-canvas"
         id="main-game-canvas"
       />
       <div className="board-border" />
+      
+      {/* 일시정지 오버레이 */}
+      {isPaused && (
+        <div className="pause-overlay">
+          <h2 className="title-glow">PAUSED</h2>
+          <button className="btn-neon" onClick={onResumeGame}>RESUME</button>
+        </div>
+      )}
     </div>
   );
 }

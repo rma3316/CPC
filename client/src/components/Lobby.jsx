@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useState } from 'react';
+import SettingsModal from './SettingsModal';
 import './Lobby.css';
 
 /**
@@ -26,6 +27,7 @@ export default function Lobby({
   const [nicknameInput, setNicknameInput] = useState('');
   const [roomName, setRoomName] = useState('');
   const [isNicknameSet, setIsNicknameSet] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleSetNickname = (e) => {
     e.preventDefault();
@@ -148,11 +150,24 @@ export default function Lobby({
 
         <div className="lobby-footer">
           <span className="player-name">🎮 {nickname}</span>
-          <span className={`connection-status ${isConnected ? 'connected' : ''}`}>
-            <span className="status-dot" />
-            {isConnected ? '연결됨' : '연결 중...'}
-          </span>
+          <div className="footer-right">
+            <span className={`connection-status ${isConnected ? 'connected' : ''}`}>
+              <span className="status-dot" />
+              {isConnected ? '연결됨' : '연결 중...'}
+            </span>
+            <button 
+              className="btn-neon small settings-btn" 
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              ⚙ 설정
+            </button>
+          </div>
         </div>
+
+        <SettingsModal 
+          isOpen={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+        />
       </div>
     </div>
   );

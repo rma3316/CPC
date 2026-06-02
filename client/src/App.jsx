@@ -57,6 +57,10 @@ export default function App() {
     ghostY,
     startGame: tetrisStartGame,
     receiveGarbage,
+    // [A 협업] A 담당자가 구현해야 할 인터페이스
+    isPaused,
+    pauseGame,
+    resumeGame,
   } = useTetris({
     onLineCleared: sendLineCleared,
     onGameOver: sendGameOver,
@@ -151,6 +155,12 @@ export default function App() {
     setGameResult(null);
   }, []);
 
+  const handleLeaveRoom = useCallback(() => {
+    // [B 협업] B 담당자가 useSocket.js에 leaveRoom(또는 socket.emit('leave_room'))을 구현하면 여기서 호출
+    setScreen('lobby');
+    setChatMessages([]);
+  }, []);
+
   // --- 화면 렌더링 ---
   if (screen === 'lobby') {
     return (
@@ -175,6 +185,7 @@ export default function App() {
         onStartGame={handleStartGame}
         chatMessages={chatMessages}
         onSendChat={sendChatMessage}
+        onLeaveRoom={handleLeaveRoom}
       />
     );
   }
@@ -240,7 +251,14 @@ export default function App() {
 
       {/* 중앙: 메인 보드 */}
       <div className="game-center">
-        <GameBoard board={board} currentPiece={currentPiece} ghostY={ghostY} />
+        <GameBoard 
+          board={board} 
+          currentPiece={currentPiece} 
+          ghostY={ghostY} 
+          isPaused={isPaused}
+          onPauseGame={pauseGame}
+          onResumeGame={resumeGame}
+        />
         {isGameOver && (
           <div className="game-over-overlay">
             <span className="game-over-text">GAME OVER</span>

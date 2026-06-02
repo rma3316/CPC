@@ -24,6 +24,7 @@ export default function WaitingRoom({
   onStartGame,
   chatMessages,
   onSendChat,
+  onLeaveRoom,
 }) {
   const myPlayer = room?.players?.find(p => p.id === myId);
   const isReady = myPlayer?.ready || false;
@@ -32,7 +33,12 @@ export default function WaitingRoom({
     <div className="waiting-room-container">
       <div className="cyber-bg" />
       <div className="waiting-room-content">
-        <h1 className="title-glow waiting-title">TETRIS</h1>
+        <div className="waiting-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 className="title-glow waiting-title">TETRIS</h1>
+          <button className="btn-neon small cancel-btn" onClick={onLeaveRoom}>
+            ← 로비로 돌아가기
+          </button>
+        </div>
         <h2 className="room-title-name">{room?.name || 'Room'}</h2>
 
         <div className="waiting-panels">
