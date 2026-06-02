@@ -78,3 +78,4 @@ npm run dev
 - **Backend**: Node.js + Express + Socket.io
 - **Canvas**: HTML5 Canvas API (게임 보드 렌더링)
 - **Design**: 사이버펑크 네온 다크 테마 + 글래스모피즘
+

@@ -25,6 +25,7 @@ export default function WaitingRoom({
   chatMessages,
   onSendChat,
   onLeaveRoom,
+  onClearChat,
 }) {
   const myPlayer = room?.players?.find(p => p.id === myId);
   const isReady = myPlayer?.ready || false;
@@ -89,7 +90,12 @@ export default function WaitingRoom({
 
           {/* 채팅 */}
           <div className="waiting-panel chat-panel-wrapper">
-            <Chat messages={chatMessages} onSendMessage={onSendChat} myId={myId} />
+            <Chat 
+              messages={chatMessages} 
+              onSendMessage={onSendChat} 
+              myId={myId} 
+              onClearChat={onClearChat}
+            />
           </div>
         </div>
       </div>

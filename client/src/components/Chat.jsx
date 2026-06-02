@@ -11,8 +11,9 @@ import './Chat.css';
  * @param {Array<{playerId: string, nickname: string, message: string, timestamp: number}>} props.messages
  * @param {Function} props.onSendMessage
  * @param {string} props.myId - 내 소켓 ID
+ * @param {Function} props.onClearChat - 채팅 클리어 핸들러
  */
-export default function Chat({ messages, onSendMessage, myId }) {
+export default function Chat({ messages, onSendMessage, myId, onClearChat }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -22,8 +23,14 @@ export default function Chat({ messages, onSendMessage, myId }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (input.trim()) {
-      onSendMessage(input.trim());
+    const text = input.trim();
+    if (text) {
+      if ((text === '/clear' || text === '/청소') && onClearChat) {
+        onClearChat();
+        setInput('');
+        return;
+      }
+      onSendMessage(text);
       setInput('');
     }
   };

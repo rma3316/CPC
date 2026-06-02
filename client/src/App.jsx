@@ -186,6 +186,7 @@ export default function App() {
         chatMessages={chatMessages}
         onSendChat={sendChatMessage}
         onLeaveRoom={handleLeaveRoom}
+        onClearChat={() => setChatMessages([])}
       />
     );
   }
@@ -278,7 +279,12 @@ export default function App() {
             />
           ))}
         </div>
-        <Chat messages={chatMessages} onSendMessage={sendChatMessage} myId={socket?.id} />
+        <Chat 
+          messages={chatMessages} 
+          onSendMessage={sendChatMessage} 
+          myId={socket?.id} 
+          onClearChat={() => setChatMessages([])}
+        />
       </div>
     </div>
   );
