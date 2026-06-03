@@ -14,10 +14,12 @@ const KEY_LABELS = {
 
 export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume, setVolume }) {
   const [editingAction, setEditingAction] = useState(null);
+  const [showKeySettings, setShowKeySettings] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
       setEditingAction(null);
+      setShowKeySettings(false);
     }
   }, [isOpen]);
 
@@ -43,35 +45,60 @@ export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume
         <h2 className="title-glow">설정 (Settings)</h2>
         
         <div className="settings-options" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <div className="setting-item">
-            <span>효과음 볼륨</span>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              className="range-neon" 
-              value={volume}
-              onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-            />
-            <span style={{ marginLeft: '10px' }}>{volume}%</span>
-          </div>
+          {!showKeySettings ? (
+            <>
+              <div className="setting-item">
+                <span>효과음 볼륨</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  className="range-neon" 
+                  value={volume}
+                  onChange={(e) => setVolume(parseInt(e.target.value, 10))}
+                />
+                <span style={{ marginLeft: '10px' }}>{volume}%</span>
+              </div>
+              
+              <div className="setting-item" style={{ marginTop: '15px' }}>
+                <span>조작키 설정</span>
+                <button 
+                  className="btn-neon small"
+                  onClick={() => setShowKeySettings(true)}
+                >
+                  변경
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 style={{ color: '#00f0f0', marginBottom: '15px', textAlign: 'center' }}>조작키 설정</h3>
+              
+              {Object.entries(KEY_LABELS).map(([action, label]) => (
+                <div className="setting-item" key={action} style={{ marginBottom: '10px' }}>
+                  <span>{label}</span>
+                  <button 
+                    className={`btn-neon small ${editingAction === action ? 'editing' : ''}`}
+                    onClick={() => setEditingAction(action)}
+                    style={{ minWidth: '100px' }}
+                  >
+                    {editingAction === action ? '입력 대기중...' : (keys?.[action] === ' ' ? 'Space' : keys?.[action])}
+                  </button>
+                </div>
+              ))}
 
-          <hr className="settings-divider" style={{ borderColor: 'rgba(255,255,255,0.1)', margin: '15px 0' }} />
-          
-          <h3 style={{ color: '#00f0f0', marginBottom: '15px', textAlign: 'center' }}>조작키 설정</h3>
-          
-          {Object.entries(KEY_LABELS).map(([action, label]) => (
-            <div className="setting-item" key={action} style={{ marginBottom: '10px' }}>
-              <span>{label}</span>
               <button 
-                className={`btn-neon small ${editingAction === action ? 'editing' : ''}`}
-                onClick={() => setEditingAction(action)}
-                style={{ minWidth: '100px' }}
+                className="btn-neon small" 
+                onClick={() => {
+                  setShowKeySettings(false);
+                  setEditingAction(null);
+                }} 
+                style={{ marginTop: '15px', width: '100%' }}
               >
-                {editingAction === action ? '키 입력 대기 중...' : (keys?.[action] === ' ' ? 'Space' : keys?.[action])}
+                뒤로 가기
               </button>
-            </div>
-          ))}
+            </>
+          )}
         </div>
 
         <button className="btn-neon purple" onClick={onClose} style={{ marginTop: '20px' }}>
