@@ -26,10 +26,25 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  // window focus/blur는 이제 App.jsx에서 글로벌하게 관리합니다.
+  // 윈도우 포커스 감지 (화면 밖으로 나갔을 때)
   useEffect(() => {
-    // 캔버스 초기화 등을 위한 이펙트 공간 유지 (이전의 window 이벤트 리스너 제거됨)
-  }, []);
+    const handleWindowBlur = () => {
+      if (onPauseGame) onPauseGame();
+    };
+    
+    // 필요시 포커스 복귀 이벤트도 처리할 수 있습니다.
+    // const handleWindowFocus = () => {
+    //   if (onResumeGame) onResumeGame();
+    // };
+
+    window.addEventListener('blur', handleWindowBlur);
+    // window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      // window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [onPauseGame, onResumeGame]);
 
   // 보드 영역 포커스 아웃 감지 (게임 중 다른 UI 클릭 시)
   const handleBoardBlur = () => {
@@ -133,7 +148,7 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
       {isPaused && (
         <div className="pause-overlay">
           <h2 className="title-glow">PAUSED</h2>
-          <p style={{ color: '#fff', marginTop: '10px' }}>Waiting for resume...</p>
+          <button className="btn-neon" onClick={onResumeGame}>RESUME</button>
         </div>
       )}
     </div>

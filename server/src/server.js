@@ -20,8 +20,6 @@ import {
   getRoomList,
   getRoom,
   findRoomBySocketId,
-  setPauseStatus,
-  voteResume,
 } from './roomManager.js';
 
 import {
@@ -196,31 +194,6 @@ io.on('connection', (socket) => {
           io.emit('room_list_updated', getRoomList());
         }
       }, 5000);
-    }
-  });
-
-  // --- 일시정지 / 재개 동기화 ---
-  socket.on('pause_game', () => {
-    const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
-    setPauseStatus(roomId, true);
-    io.to(roomId).emit('game_paused', { by: socket.id });
-  });
-
-  socket.on('resume_request', () => {
-    const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
-    io.to(roomId).emit('resume_prompt', { by: socket.id });
-  });
-
-  socket.on('resume_agreed', () => {
-    const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
-    
-    const isUnanimous = voteResume(roomId, socket.id);
-    if (isUnanimous) {
-      setPauseStatus(roomId, false);
-      io.to(roomId).emit('game_resumed');
     }
   });
 
