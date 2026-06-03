@@ -25,6 +25,9 @@ import { SERVER_URL } from '../game/constants';
  *   sendLineCleared: Function,
  *   sendGameOver: Function,
  *   sendChatMessage: Function,
+ *   sendPauseGame: Function,
+ *   sendResumeRequest: Function,
+ *   sendResumeAgreed: Function,
  * }}
  */
 export function useSocket() {
@@ -118,6 +121,19 @@ export function useSocket() {
     socketRef.current?.emit('game_over');
   }, []);
 
+  // --- 일시정지 / 재개 동기화 ---
+  const sendPauseGame = useCallback(() => {
+    socketRef.current?.emit('pause_game');
+  }, []);
+
+  const sendResumeRequest = useCallback(() => {
+    socketRef.current?.emit('resume_request');
+  }, []);
+
+  const sendResumeAgreed = useCallback(() => {
+    socketRef.current?.emit('resume_agreed');
+  }, []);
+
   // --- 채팅 메시지 전송 ---
   const sendChatMessage = useCallback((message) => {
     socketRef.current?.emit('chat_message', { message, nickname });
@@ -138,5 +154,8 @@ export function useSocket() {
     sendLineCleared,
     sendGameOver,
     sendChatMessage,
+    sendPauseGame,
+    sendResumeRequest,
+    sendResumeAgreed,
   };
 }

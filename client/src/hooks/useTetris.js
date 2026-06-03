@@ -48,6 +48,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
   const [isGameOver, setIsGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [combo, setCombo] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const pieceQueueRef = useRef(null);
   const dropTimerRef = useRef(null);
@@ -79,6 +80,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     setCanHold(true);
     setIsGameOver(false);
     setIsPlaying(true);
+    setIsPaused(false);
     setCombo(0);
 
     boardRef.current = newBoard;
@@ -253,9 +255,13 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     });
   }, []);
 
+  // ---------- 일시정지 제어 ----------
+  const pauseGame = useCallback(() => setIsPaused(true), []);
+  const resumeGame = useCallback(() => setIsPaused(false), []);
+
   // ---------- 자동 낙하 ----------
   useEffect(() => {
-    if (!isPlaying || isGameOver) {
+    if (!isPlaying || isGameOver || isPaused) {
       clearInterval(dropTimerRef.current);
       return;
     }
@@ -270,11 +276,11 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     }, speed);
 
     return () => clearInterval(dropTimerRef.current);
-  }, [isPlaying, isGameOver, level, movePiece]);
+  }, [isPlaying, isGameOver, isPaused, level, movePiece]);
 
   // ---------- 키보드 입력 처리 ----------
   useEffect(() => {
-    if (!isPlaying || isGameOver) return;
+    if (!isPlaying || isGameOver || isPaused) return;
 
     const handleKeyDown = (e) => {
       switch (e.key) {
@@ -313,7 +319,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isGameOver, movePiece, hardDrop, rotate, hold]);
+  }, [isPlaying, isGameOver, isPaused, movePiece, hardDrop, rotate, hold]);
 
   // ---------- 고스트 피스 위치 ----------
   const ghostY = currentPiece
@@ -332,6 +338,9 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate } = {}) {
     isPlaying,
     combo,
     ghostY,
+    isPaused,
+    pauseGame,
+    resumeGame,
     startGame,
     movePiece,
     rotate,

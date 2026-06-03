@@ -24,6 +24,8 @@ export default function App() {
   const [opponents, setOpponents] = useState({});
   const [allReady, setAllReady] = useState(false);
   const [gameResult, setGameResult] = useState(null);
+  const [showResumeConfirm, setShowResumeConfirm] = useState(false);
+  const [hasVotedResume, setHasVotedResume] = useState(false);
 
   const {
     socket,
@@ -40,6 +42,9 @@ export default function App() {
     sendLineCleared,
     sendGameOver,
     sendChatMessage,
+    sendPauseGame,
+    sendResumeRequest,
+    sendResumeAgreed,
   } = useSocket();
 
   // --- 테트리스 게임 훅 ---
@@ -116,6 +121,22 @@ export default function App() {
         setGameResult(winner);
         setScreen('result');
       },
+
+      game_paused: () => {
+        pauseGame();
+        setHasVotedResume(false);
+      },
+
+      resume_prompt: () => {
+        setShowResumeConfirm(true);
+        setHasVotedResume(false);
+      },
+
+      game_resumed: () => {
+        setShowResumeConfirm(false);
+        setHasVotedResume(false);
+        resumeGame();
+      },
     };
 
     for (const [event, handler] of Object.entries(handlers)) {
@@ -127,7 +148,28 @@ export default function App() {
         socket.off(event);
       }
     };
-  }, [socket, tetrisStartGame, receiveGarbage]);
+  }, [socket, tetrisStartGame, receiveGarbage, pauseGame, resumeGame]);
+
+  // --- 글로벌 윈도우 포커스/블러 이벤트 감지 (게임 화면일 때만 동작) ---
+  useEffect(() => {
+    if (screen !== 'playing') return;
+
+    const handleBlur = () => {
+      sendPauseGame();
+    };
+
+    const handleFocus = () => {
+      sendResumeRequest();
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [screen, sendPauseGame, sendResumeRequest]);
 
   // --- 핸들러 ---
   const handleCreateRoom = useCallback(async (roomName) => {
@@ -286,6 +328,37 @@ export default function App() {
           onClearChat={() => setChatMessages([])}
         />
       </div>
+
+      {/* 재개 확인 팝업 (오버레이) */}
+      {showResumeConfirm && (
+        <div className="result-container" style={{ zIndex: 1000, background: 'rgba(0, 0, 0, 0.8)' }}>
+          <div className="result-content glass-card" style={{ padding: '40px' }}>
+            <h2 className="title-glow" style={{ fontSize: '2rem', marginBottom: '20px' }}>RESUME GAME?</h2>
+            {hasVotedResume ? (
+              <p style={{ color: '#aaa', fontSize: '1.2rem', marginBottom: '30px' }}>
+                다른 플레이어의 확인을 기다리는 중...
+              </p>
+            ) : (
+              <p style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '30px' }}>
+                플레이어가 돌아왔습니다. 게임을 재개하시겠습니까?
+              </p>
+            )}
+            <button 
+              className="btn-neon purple" 
+              onClick={() => {
+                if (!hasVotedResume) {
+                  sendResumeAgreed();
+                  setHasVotedResume(true);
+                }
+              }}
+              disabled={hasVotedResume}
+              style={{ opacity: hasVotedResume ? 0.5 : 1, cursor: hasVotedResume ? 'not-allowed' : 'pointer' }}
+            >
+              {hasVotedResume ? '대기 중' : '확인 (Resume)'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

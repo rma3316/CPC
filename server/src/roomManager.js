@@ -113,6 +113,7 @@ export function startGame(roomId) {
   const room = rooms.get(roomId);
   if (!room) return null;
   room.status = 'playing';
+  room.resumeVotes = new Set();
   // 모든 플레이어를 alive 상태로
   for (const player of room.players.values()) {
     player.alive = true;
@@ -150,6 +151,7 @@ export function resetRoom(roomId) {
   const room = rooms.get(roomId);
   if (!room) return null;
   room.status = 'waiting';
+  room.resumeVotes = new Set();
   for (const player of room.players.values()) {
     player.ready = false;
     player.alive = true;
@@ -180,6 +182,37 @@ export function findRoomBySocketId(socketId) {
     if (room.players.has(socketId)) return roomId;
   }
   return null;
+}
+
+/**
+ * 일시정지 상태 설정 및 투표 초기화
+ */
+export function setPauseStatus(roomId, isPaused) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  if (isPaused) {
+    room.resumeVotes = new Set();
+  }
+  return serializeRoom(room);
+}
+
+/**
+ * 재개 투표 처리 및 만장일치 여부 확인
+ */
+export function voteResume(roomId, socketId) {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  
+  if (!room.resumeVotes) {
+    room.resumeVotes = new Set();
+  }
+  room.resumeVotes.add(socketId);
+  
+  // 생존한 모든 플레이어가 투표했는지 확인
+  const alivePlayers = [...room.players.values()].filter(p => p.alive);
+  const allVoted = alivePlayers.length > 0 && alivePlayers.every(p => room.resumeVotes.has(p.id));
+  
+  return allVoted;
 }
 
 // ---------- Helpers ----------
