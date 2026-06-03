@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useTetris } from './hooks/useTetris';
+import { useSettings } from './hooks/useSettings';
 import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
 import GameBoard from './components/GameBoard';
@@ -25,6 +26,12 @@ export default function App() {
   const [allReady, setAllReady] = useState(false);
   const [gameResult, setGameResult] = useState(null);
 
+  const handleKicked = useCallback(() => {
+    alert("방장에 의해 추방되었습니다.");
+    setScreen('lobby');
+    setChatMessages([]);
+  }, []);
+
   const {
     socket,
     isConnected,
@@ -40,7 +47,12 @@ export default function App() {
     sendLineCleared,
     sendGameOver,
     sendChatMessage,
-  } = useSocket();
+    transferHost,
+    kickPlayer,
+    leaveRoom,
+  } = useSocket({ onKickedCallback: handleKicked });
+
+  const { keys, updateKey, volume, setVolume } = useSettings();
 
   // --- 테트리스 게임 훅 ---
   const {
@@ -65,6 +77,7 @@ export default function App() {
     onLineCleared: sendLineCleared,
     onGameOver: sendGameOver,
     onStateUpdate: sendPlayerState,
+    keys,
   });
 
   // --- 소켓 이벤트 리스너 ---
@@ -155,11 +168,11 @@ export default function App() {
     setGameResult(null);
   }, []);
 
-  const handleLeaveRoom = useCallback(() => {
-    // [B 협업] B 담당자가 useSocket.js에 leaveRoom(또는 socket.emit('leave_room'))을 구현하면 여기서 호출
+  const handleLeaveRoom = useCallback(async () => {
+    await leaveRoom();
     setScreen('lobby');
     setChatMessages([]);
-  }, []);
+  }, [leaveRoom]);
 
   // --- 화면 렌더링 ---
   if (screen === 'lobby') {
@@ -171,6 +184,10 @@ export default function App() {
         onCreateRoom={handleCreateRoom}
         onJoinRoom={handleJoinRoom}
         isConnected={isConnected}
+        keys={keys}
+        updateKey={updateKey}
+        volume={volume}
+        setVolume={setVolume}
       />
     );
   }
@@ -187,6 +204,8 @@ export default function App() {
         onSendChat={sendChatMessage}
         onLeaveRoom={handleLeaveRoom}
         onClearChat={() => setChatMessages([])}
+        onTransferHost={transferHost}
+        onKickPlayer={kickPlayer}
       />
     );
   }

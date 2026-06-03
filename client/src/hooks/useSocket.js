@@ -25,9 +25,13 @@ import { SERVER_URL } from '../game/constants';
  *   sendLineCleared: Function,
  *   sendGameOver: Function,
  *   sendChatMessage: Function,
+ *   transferHost: Function,
+ *   kickPlayer: Function,
+ *   leaveRoom: Function,
+ *   onKicked: Function,
  * }}
  */
-export function useSocket() {
+export function useSocket({ onKickedCallback } = {}) {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState([]);
@@ -66,6 +70,12 @@ export function useSocket() {
     // 현재 방 상태 업데이트
     socket.on('room_updated', (room) => {
       setCurrentRoom(room);
+    });
+
+    // 추방당함
+    socket.on('kicked', () => {
+      setCurrentRoom(null);
+      if (onKickedCallback) onKickedCallback();
     });
 
     return () => {
@@ -123,6 +133,26 @@ export function useSocket() {
     socketRef.current?.emit('chat_message', { message, nickname });
   }, [nickname]);
 
+  // --- 방장 권한 인계 ---
+  const transferHost = useCallback((targetId) => {
+    socketRef.current?.emit('transfer_host', { targetId });
+  }, []);
+
+  // --- 플레이어 추방 ---
+  const kickPlayer = useCallback((targetId) => {
+    socketRef.current?.emit('kick_player', { targetId });
+  }, []);
+
+  // --- 방 나가기 ---
+  const leaveRoom = useCallback(() => {
+    return new Promise((resolve) => {
+      socketRef.current?.emit('leave_room', () => {
+        setCurrentRoom(null);
+        resolve();
+      });
+    });
+  }, []);
+
   return {
     socket: socketRef.current,
     isConnected,
@@ -138,5 +168,8 @@ export function useSocket() {
     sendLineCleared,
     sendGameOver,
     sendChatMessage,
+    transferHost,
+    kickPlayer,
+    leaveRoom,
   };
 }

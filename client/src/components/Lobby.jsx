@@ -23,6 +23,10 @@ export default function Lobby({
   onCreateRoom,
   onJoinRoom,
   isConnected,
+  keys,
+  updateKey,
+  volume,
+  setVolume,
 }) {
   const [nicknameInput, setNicknameInput] = useState('');
   const [roomName, setRoomName] = useState('');
@@ -167,6 +171,10 @@ export default function Lobby({
         <SettingsModal 
           isOpen={isSettingsOpen} 
           onClose={() => setIsSettingsOpen(false)} 
+          keys={keys}
+          updateKey={updateKey}
+          volume={volume}
+          setVolume={setVolume}
         />
       </div>
     </div>

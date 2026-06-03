@@ -1,0 +1,37 @@
+import { useState, useEffect } from 'react';
+import { KEY_BINDINGS } from '../game/constants';
+
+export function useSettings() {
+  const [keys, setKeys] = useState(() => {
+    const saved = localStorage.getItem('tetris_keys');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // 새로운 키(RESET 등)가 없을 수 있으므로 기본값과 병합
+        return { ...KEY_BINDINGS, ...parsed };
+      } catch (e) {
+        console.error("Failed to parse settings", e);
+      }
+    }
+    return { ...KEY_BINDINGS };
+  });
+
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('tetris_volume');
+    return saved !== null ? parseInt(saved, 10) : 50;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('tetris_keys', JSON.stringify(keys));
+  }, [keys]);
+
+  useEffect(() => {
+    localStorage.setItem('tetris_volume', volume.toString());
+  }, [volume]);
+
+  const updateKey = (action, newKey) => {
+    setKeys(prev => ({ ...prev, [action]: newKey }));
+  };
+
+  return { keys, updateKey, volume, setVolume };
+}

@@ -57,6 +57,11 @@ export function joinRoom(roomId, socketId, nickname) {
     alive: true,
   });
 
+  // 첫 번째로 방에 들어온 사람을 방장으로 지정
+  if (!room.hostId) {
+    room.hostId = socketId;
+  }
+
   return { success: true, room: serializeRoom(room) };
 }
 
@@ -78,6 +83,11 @@ export function leaveRoom(roomId, socketId) {
     return { deleted: true };
   }
 
+  // 방장이 나간 경우, 남은 플레이어 중 첫 번째에게 방장 위임
+  if (room.hostId === socketId) {
+    room.hostId = [...room.players.keys()][0];
+  }
+
   return { room: serializeRoom(room), deleted: false };
 }
 
@@ -94,12 +104,14 @@ export function toggleReady(roomId, socketId) {
 }
 
 /**
- * 모든 플레이어가 Ready인지 확인 (최소 2명)
+ * 모든 플레이어가 Ready인지 확인 (혼자일 때는 무조건 시작 가능)
  */
 export function isAllReady(roomId) {
   const room = rooms.get(roomId);
   if (!room) return false;
-  if (room.players.size < 2) return false;
+  if (room.players.size === 0) return false;
+  // 방에 혼자 있을 때(싱글플레이 모드) 시작 버튼을 누를 수 있도록 true 반환
+  if (room.players.size === 1) return true;
   for (const player of room.players.values()) {
     if (!player.ready) return false;
   }
@@ -182,12 +194,39 @@ export function findRoomBySocketId(socketId) {
   return null;
 }
 
+/**
+ * 방장 권한 인계
+ */
+export function transferHost(roomId, fromId, toId) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  if (room.hostId === fromId && room.players.has(toId)) {
+    room.hostId = toId;
+    return serializeRoom(room);
+  }
+  return null;
+}
+
+/**
+ * 플레이어 추방
+ */
+export function kickPlayer(roomId, hostId, targetId) {
+  const room = rooms.get(roomId);
+  if (!room) return { success: false };
+  if (room.hostId === hostId && room.players.has(targetId)) {
+    room.players.delete(targetId);
+    return { success: true, room: serializeRoom(room) };
+  }
+  return { success: false };
+}
+
 // ---------- Helpers ----------
 
 function serializeRoom(room) {
   return {
     id: room.id,
     name: room.name,
+    hostId: room.hostId, // 방장 ID 추가
     players: [...room.players.values()],
     maxPlayers: room.maxPlayers,
     status: room.status,
