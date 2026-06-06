@@ -1,10 +1,4 @@
-// ============================================================
-//  Chat.jsx - 채팅 컴포넌트
-//  담당: 개발자 C (UI 컴포넌트 담당)
-// ============================================================
-
 import { useState, useRef, useEffect } from 'react';
-import './Chat.css';
 
 /**
  * @param {object} props
@@ -36,34 +30,41 @@ export default function Chat({ messages, onSendMessage, myId, onClearChat }) {
   };
 
   return (
-    <div className="chat-container glass-card-sm">
-      <div className="chat-header">
-        <span className="chat-title">💬 채팅</span>
+    <div className="flex flex-col h-full bg-white/20 backdrop-blur-md border border-white/40 rounded-2xl p-4 shadow-lg">
+      <div className="mb-3 border-b border-sky-100/50 pb-2">
+        <span className="font-headline font-bold text-sky-900 flex items-center gap-2">
+          <span className="material-symbols-outlined text-sky-500" style={{ fontVariationSettings: "'FILL' 1" }}>forum</span>
+          채팅
+        </span>
       </div>
-      <div className="chat-messages">
+      
+      <div className="flex-1 overflow-y-auto mb-3 pr-2 flex flex-col gap-2 custom-scrollbar">
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`chat-message ${msg.playerId === myId ? 'mine' : ''}`}
+            className={`flex flex-col max-w-[85%] ${msg.playerId === myId ? 'self-end items-end' : 'self-start items-start'}`}
           >
-            <span className="chat-nickname">{msg.nickname}</span>
-            <span className="chat-text">{msg.message}</span>
+            <span className="text-[10px] font-bold text-sky-700/70 mb-0.5 px-1">{msg.nickname}</span>
+            <div className={`px-3 py-2 rounded-2xl text-sm shadow-sm ${msg.playerId === myId ? 'bg-sky-500 text-white rounded-tr-sm' : 'bg-white/60 text-sky-900 border border-sky-100/50 rounded-tl-sm'}`}>
+              {msg.message}
+            </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <form className="chat-input-form" onSubmit={handleSubmit}>
+      
+      <form className="flex gap-2 shrink-0 mt-auto" onSubmit={handleSubmit}>
         <input
           id="chat-input"
-          className="input-neon chat-input"
+          className="flex-1 glass-input h-10 px-3 rounded-xl text-sm placeholder:text-sky-700/50"
           type="text"
           placeholder="메시지 입력..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={200}
         />
-        <button id="chat-send" className="btn-neon chat-send" type="submit">
-          전송
+        <button id="chat-send" className="glass-button !w-12 h-10 rounded-xl flex items-center justify-center p-0" type="submit" aria-label="전송">
+          <span className="material-symbols-outlined text-lg">send</span>
         </button>
       </form>
     </div>

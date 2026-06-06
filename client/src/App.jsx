@@ -231,31 +231,33 @@ export default function App() {
 
   if (screen === 'result') {
     return (
-      <div className="result-container">
-        <div className="cyber-bg" />
-        <div className="result-content glass-card">
-          <h1 className="title-glow result-title">GAME OVER</h1>
+      <div className="bg-atmosphere min-h-screen w-full flex flex-col items-center justify-center relative font-body text-sky-950 overflow-hidden" style={{ margin: 0, padding: 0 }}>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-200/50 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-300/40 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+
+        <div className="glass-panel max-w-md w-full p-10 flex flex-col items-center justify-center relative z-10 animate-scale-in">
+          <h1 className="font-headline text-5xl font-bold text-sky-950 mb-8 drop-shadow-md">GAME OVER</h1>
           {gameResult && (
-            <div className="winner-info">
-              <span className="winner-label">🏆 승자</span>
-              <span className="winner-name">{gameResult.nickname}</span>
+            <div className="flex flex-col items-center bg-white/40 border border-sky-100 rounded-2xl p-6 w-full mb-8 shadow-sm">
+              <span className="text-sm font-bold text-sky-600 mb-1">🏆 승자</span>
+              <span className="font-headline text-2xl font-bold text-sky-900">{gameResult.nickname}</span>
             </div>
           )}
-          <div className="result-stats">
-            <div className="result-stat">
-              <span className="stat-label">MY SCORE</span>
-              <span className="stat-value">{score.toLocaleString()}</span>
+          <div className="w-full flex flex-col gap-4 mb-10">
+            <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
+              <span className="font-semibold text-sky-800">MY SCORE</span>
+              <span className="font-headline text-2xl font-bold text-sky-600">{score.toLocaleString()}</span>
             </div>
-            <div className="result-stat">
-              <span className="stat-label">LINES</span>
-              <span className="stat-value">{totalLines}</span>
+            <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
+              <span className="font-semibold text-sky-800">LINES</span>
+              <span className="font-headline text-xl font-bold text-sky-700">{totalLines}</span>
             </div>
-            <div className="result-stat">
-              <span className="stat-label">LEVEL</span>
-              <span className="stat-value">{level}</span>
+            <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
+              <span className="font-semibold text-sky-800">LEVEL</span>
+              <span className="font-headline text-xl font-bold text-sky-700">{level}</span>
             </div>
           </div>
-          <button className="btn-neon purple" onClick={handleBackToWaiting}>
+          <button className="glass-button !w-full h-14 rounded-xl font-bold text-lg" onClick={handleBackToWaiting}>
             대기실로 돌아가기
           </button>
         </div>
@@ -273,56 +275,71 @@ export default function App() {
     })) || [];
 
   return (
-    <div className="game-container">
-      <div className="cyber-bg" />
-
-      {/* 왼쪽: 점수 패널 */}
-      <div className="game-left">
-        <ScorePanel
-          score={score}
-          level={level}
-          totalLines={totalLines}
-          combo={combo}
-          holdPiece={holdPiece}
-          nextPieces={nextPieces}
-        />
+    <div className="bg-atmosphere min-h-screen w-full flex items-center justify-center relative font-body text-sky-950 overflow-hidden" style={{ margin: 0, padding: 0 }}>
+      {/* Abstract Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="tetrimino tetrimino-i"></div>
+        <div className="tetrimino tetrimino-t"></div>
+        <div className="tetrimino tetrimino-l"></div>
+        <div className="tetrimino tetrimino-o"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-300/30 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-sky-200/40 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* 중앙: 메인 보드 */}
-      <div className="game-center">
-        <GameBoard 
-          board={board} 
-          currentPiece={currentPiece} 
-          ghostY={ghostY} 
-          isPaused={isPaused}
-          onPauseGame={pauseGame}
-          onResumeGame={resumeGame}
-        />
-        {isGameOver && (
-          <div className="game-over-overlay">
-            <span className="game-over-text">GAME OVER</span>
-          </div>
-        )}
-      </div>
-
-      {/* 오른쪽: 상대방 미니 보드 + 채팅 */}
-      <div className="game-right">
-        <div className="opponents-grid">
-          {opponentEntries.map(op => (
-            <MiniBoard
-              key={op.id}
-              board={op.board}
-              nickname={op.nickname}
-              alive={op.alive}
-            />
-          ))}
+      <div className="w-full max-w-[1400px] h-screen max-h-[900px] p-6 flex flex-col lg:flex-row gap-6 relative z-10">
+        {/* 왼쪽: 점수 패널 */}
+        <div className="w-full lg:w-64 flex flex-col h-full shrink-0">
+          <ScorePanel
+            score={score}
+            level={level}
+            totalLines={totalLines}
+            combo={combo}
+            holdPiece={holdPiece}
+            nextPieces={nextPieces}
+          />
         </div>
-        <Chat 
-          messages={chatMessages} 
-          onSendMessage={sendChatMessage} 
-          myId={socket?.id} 
-          onClearChat={() => setChatMessages([])}
-        />
+
+        {/* 중앙: 메인 보드 */}
+        <div className="flex-1 flex justify-center items-center h-full relative min-w-[350px]">
+          <GameBoard 
+            board={board} 
+            currentPiece={currentPiece} 
+            ghostY={ghostY} 
+            isPaused={isPaused}
+            onPauseGame={pauseGame}
+            onResumeGame={resumeGame}
+          />
+          {isGameOver && (
+            <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+              <div className="bg-white/80 backdrop-blur-md px-10 py-6 rounded-2xl shadow-2xl border border-sky-100 flex flex-col items-center transform -translate-y-10">
+                <span className="font-headline text-5xl font-bold text-red-500 drop-shadow-sm mb-2">GAME OVER</span>
+                <span className="text-sky-800 font-medium">결과를 기다리는 중...</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 오른쪽: 상대방 미니 보드 + 채팅 */}
+        <div className="w-full lg:w-80 flex flex-col gap-4 h-full shrink-0">
+          <div className="flex-1 grid grid-cols-2 gap-3 auto-rows-fr">
+            {opponentEntries.map(op => (
+              <MiniBoard
+                key={op.id}
+                board={op.board}
+                nickname={op.nickname}
+                alive={op.alive}
+              />
+            ))}
+          </div>
+          <div className="h-[300px] shrink-0 flex flex-col">
+            <Chat 
+              messages={chatMessages} 
+              onSendMessage={sendChatMessage} 
+              myId={socket?.id} 
+              onClearChat={() => setChatMessages([])}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

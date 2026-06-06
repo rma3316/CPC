@@ -1,11 +1,5 @@
-// ============================================================
-//  MiniBoard.jsx - 상대방 미니 보드
-//  담당: 개발자 C (UI 컴포넌트 담당)
-// ============================================================
-
 import { useRef, useEffect } from 'react';
 import { BOARD_WIDTH, BOARD_HEIGHT, MINI_CELL_SIZE, PIECE_COLORS } from '../game/constants';
-import './MiniBoard.css';
 
 /**
  * 상대방 보드를 축소된 캔버스로 렌더링합니다.
@@ -30,8 +24,8 @@ export default function MiniBoard({ board, nickname, alive, isEliminated }) {
     canvas.width = width;
     canvas.height = height;
 
-    // 배경
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    // 배경 (밝게)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.fillRect(0, 0, width, height);
 
     if (!board) return;
@@ -53,20 +47,27 @@ export default function MiniBoard({ board, nickname, alive, isEliminated }) {
 
     // 탈락 오버레이
     if (isEliminated || !alive) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = '#ff3030';
-      ctx.font = `bold ${MINI_CELL_SIZE * 2}px ${getComputedStyle(document.documentElement).getPropertyValue('--font-display')}`;
+      ctx.fillStyle = '#ef4444'; // Tailwind red-500
+      ctx.font = `bold ${MINI_CELL_SIZE * 2.5}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      
+      // 텍스트에 하얀 테두리 추가해서 잘 보이게
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.strokeText('OUT', width / 2, height / 2);
       ctx.fillText('OUT', width / 2, height / 2);
     }
   }, [board, alive, isEliminated]);
 
   return (
-    <div className={`mini-board ${!alive ? 'eliminated' : ''}`}>
-      <canvas ref={canvasRef} className="mini-board-canvas" />
-      <span className="mini-board-name">{nickname || '???'}</span>
+    <div className={`flex flex-col items-center bg-white/30 backdrop-blur-sm border border-white/50 rounded-xl p-2 shadow-sm relative transition-opacity ${!alive ? 'opacity-70 grayscale-[30%]' : ''}`}>
+      <canvas ref={canvasRef} className="block rounded-md overflow-hidden bg-transparent border border-sky-100/50" />
+      <span className="font-headline font-bold text-sm text-sky-900 mt-2 truncate w-full text-center px-1">
+        {nickname || '???'}
+      </span>
     </div>
   );
 }

@@ -1,8 +1,3 @@
-// ============================================================
-//  GameBoard.jsx - 메인 게임 보드 캔버스 렌더링
-//  담당: 개발자 C (UI 컴포넌트 담당)
-// ============================================================
-
 import { useRef, useEffect } from 'react';
 import {
   BOARD_WIDTH,
@@ -11,7 +6,6 @@ import {
   PIECE_COLORS,
   PIECE_GLOW_COLORS,
 } from '../game/constants';
-import './GameBoard.css';
 
 /**
  * @param {object} props
@@ -26,27 +20,19 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  // 윈도우 포커스 감지 (화면 밖으로 나갔을 때)
+  // 윈도우 포커스 감지
   useEffect(() => {
     const handleWindowBlur = () => {
       if (onPauseGame) onPauseGame();
     };
-    
-    // 필요시 포커스 복귀 이벤트도 처리할 수 있습니다.
-    // const handleWindowFocus = () => {
-    //   if (onResumeGame) onResumeGame();
-    // };
 
     window.addEventListener('blur', handleWindowBlur);
-    // window.addEventListener('focus', handleWindowFocus);
-
     return () => {
       window.removeEventListener('blur', handleWindowBlur);
-      // window.removeEventListener('focus', handleWindowFocus);
     };
   }, [onPauseGame, onResumeGame]);
 
-  // 보드 영역 포커스 아웃 감지 (게임 중 다른 UI 클릭 시)
+  // 보드 영역 포커스 아웃 감지
   const handleBoardBlur = () => {
     if (onPauseGame) onPauseGame();
   };
@@ -67,12 +53,12 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
     canvas.width = width;
     canvas.height = height;
 
-    // 보드 배경
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    // 보드 배경 (밝게 변경)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.fillRect(0, 0, width, height);
 
-    // 그리드
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    // 그리드 (밝은 톤)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= BOARD_WIDTH; x++) {
       ctx.beginPath();
@@ -104,9 +90,11 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
           if (shape[row][col] !== 0) {
             const drawX = (currentPiece.x + col) * CELL_SIZE;
             const drawY = (ghostY + row) * CELL_SIZE;
-            ctx.strokeStyle = PIECE_COLORS[shape[row][col]] + '66';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = PIECE_COLORS[shape[row][col]] + 'AA'; // 고스트 진하게
+            ctx.lineWidth = 2;
             ctx.strokeRect(drawX + 1, drawY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+            ctx.fillStyle = PIECE_COLORS[shape[row][col]] + '33'; // 내부 연하게
+            ctx.fillRect(drawX + 1, drawY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
           }
         }
       }
@@ -130,42 +118,41 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
 
   return (
     <div 
-      className="game-board-wrapper" 
+      className="relative flex items-center justify-center p-2 bg-white/20 backdrop-blur-md border-[4px] border-white/60 rounded-xl shadow-2xl shadow-sky-900/10 overflow-hidden" 
       ref={containerRef}
       tabIndex={0} 
       onBlur={handleBoardBlur}
       onMouseLeave={handleMouseLeave}
-      style={{ outline: 'none' }} // 기본 포커스 아웃라인 제거 (D가 CSS로 처리 가능)
+      style={{ outline: 'none' }}
     >
       <canvas
         ref={canvasRef}
-        className="game-board-canvas"
+        className="block bg-transparent"
         id="main-game-canvas"
       />
-      <div className="board-border" />
       
       {/* 일시정지 오버레이 */}
       {isPaused && (
-        <div className="pause-overlay">
-          <h2 className="title-glow">PAUSED</h2>
-          <button className="btn-neon" onClick={onResumeGame}>RESUME</button>
+        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+          <h2 className="font-headline text-4xl font-bold text-sky-900 mb-6 drop-shadow-md tracking-widest">PAUSED</h2>
+          <button className="glass-button !w-auto px-8 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform" onClick={onResumeGame}>RESUME</button>
         </div>
       )}
     </div>
   );
 }
 
-/** 셀 하나를 그립니다 (네온 글로우 효과 포함) */
+/** 셀 하나를 그립니다 */
 function drawCell(ctx, x, y, type) {
   const px = x * CELL_SIZE;
   const py = y * CELL_SIZE;
   const color = PIECE_COLORS[type] || PIECE_COLORS[0];
   const glowColor = PIECE_GLOW_COLORS[type];
 
-  // 글로우
+  // 블록 글로우 효과 조금 줄임 (밝은 배경이므로)
   if (glowColor) {
     ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 4;
   }
 
   // 메인 블록
@@ -173,12 +160,12 @@ function drawCell(ctx, x, y, type) {
   ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
 
   // 하이라이트 (위쪽, 왼쪽)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, 2);
   ctx.fillRect(px + 1, py + 1, 2, CELL_SIZE - 2);
 
-  // 그림자 (아래쪽, 오른쪽)
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  // 그림자 (아래쪽, 오른쪽) - 어두운색 약간 진하게
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.fillRect(px + 1, py + CELL_SIZE - 3, CELL_SIZE - 2, 2);
   ctx.fillRect(px + CELL_SIZE - 3, py + 1, 2, CELL_SIZE - 2);
 

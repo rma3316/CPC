@@ -1,12 +1,6 @@
-// ============================================================
-//  ScorePanel.jsx - 점수, 레벨, 다음 피스, 홀드 표시 패널
-//  담당: 개발자 C (UI 컴포넌트 담당)
-// ============================================================
-
 import { useRef, useEffect } from 'react';
 import { TETROMINOS } from '../game/tetrominos';
-import { PIECE_COLORS, CELL_SIZE } from '../game/constants';
-import './ScorePanel.css';
+import { PIECE_COLORS } from '../game/constants';
 
 /**
  * @param {object} props
@@ -19,41 +13,49 @@ import './ScorePanel.css';
  */
 export default function ScorePanel({ score, level, totalLines, combo, holdPiece, nextPieces }) {
   return (
-    <div className="score-panel">
+    <div className="flex flex-col gap-4 h-full">
       {/* Hold */}
-      <div className="glass-card-sm panel-section">
-        <h3 className="section-title">HOLD</h3>
-        <PiecePreview pieceName={holdPiece} />
+      <div className="glass-panel p-4 flex flex-col items-center shadow-md">
+        <h3 className="font-headline font-bold text-sky-800 text-sm tracking-widest mb-3">HOLD</h3>
+        <div className="bg-white/40 border border-sky-100 rounded-lg p-3 shadow-inner w-full flex justify-center">
+          <PiecePreview pieceName={holdPiece} />
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="glass-card-sm panel-section stats-section">
-        <div className="stat-item">
-          <span className="stat-label">SCORE</span>
-          <span className="stat-value">{score.toLocaleString()}</span>
+      <div className="glass-panel p-5 flex flex-col gap-4 shadow-md flex-1 justify-center">
+        <div className="flex flex-col items-center bg-white/40 rounded-xl p-3 border border-sky-100/50 shadow-sm">
+          <span className="font-headline text-xs font-bold text-sky-600 mb-1 tracking-wider">SCORE</span>
+          <span className="font-headline text-3xl font-bold text-sky-950">{score.toLocaleString()}</span>
         </div>
-        <div className="stat-item">
-          <span className="stat-label">LEVEL</span>
-          <span className="stat-value">{level}</span>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col items-center bg-white/40 rounded-xl p-3 border border-sky-100/50 shadow-sm">
+            <span className="font-headline text-xs font-bold text-sky-600 mb-1 tracking-wider">LEVEL</span>
+            <span className="font-headline text-2xl font-bold text-sky-900">{level}</span>
+          </div>
+          <div className="flex flex-col items-center bg-white/40 rounded-xl p-3 border border-sky-100/50 shadow-sm">
+            <span className="font-headline text-xs font-bold text-sky-600 mb-1 tracking-wider">LINES</span>
+            <span className="font-headline text-2xl font-bold text-sky-900">{totalLines}</span>
+          </div>
         </div>
-        <div className="stat-item">
-          <span className="stat-label">LINES</span>
-          <span className="stat-value">{totalLines}</span>
-        </div>
+
         {combo > 1 && (
-          <div className="stat-item combo">
-            <span className="stat-label">COMBO</span>
-            <span className="stat-value combo-value">{combo}x</span>
+          <div className="mt-2 flex flex-col items-center bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl p-3 border border-orange-200 shadow-sm animate-pulse-fast">
+            <span className="font-headline text-xs font-bold text-orange-600 mb-1 tracking-wider">COMBO</span>
+            <span className="font-headline text-3xl font-bold text-orange-600">{combo}x</span>
           </div>
         )}
       </div>
 
       {/* Next Pieces */}
-      <div className="glass-card-sm panel-section">
-        <h3 className="section-title">NEXT</h3>
-        <div className="next-pieces">
+      <div className="glass-panel p-4 flex flex-col items-center shadow-md">
+        <h3 className="font-headline font-bold text-sky-800 text-sm tracking-widest mb-3">NEXT</h3>
+        <div className="flex flex-col gap-2 w-full">
           {nextPieces?.slice(0, 5).map((name, i) => (
-            <PiecePreview key={i} pieceName={name} small={i > 0} />
+            <div key={i} className={`bg-white/40 border border-sky-100 rounded-lg flex justify-center items-center shadow-inner ${i === 0 ? 'p-3' : 'p-2'}`}>
+              <PiecePreview pieceName={name} small={i > 0} />
+            </div>
           ))}
         </div>
       </div>
@@ -91,18 +93,25 @@ function PiecePreview({ pieceName, small = false }) {
       for (let c = 0; c < cols; c++) {
         if (shape[r][c] !== 0) {
           ctx.fillStyle = PIECE_COLORS[shape[r][c]];
+          // 글로우 효과 유지
           ctx.shadowColor = PIECE_COLORS[shape[r][c]];
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 4;
+          
           ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+          
+          // 하이라이트 효과
           ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, 2);
+          ctx.fillRect(c * cellSize + 1, r * cellSize + 1, 2, cellSize - 2);
         }
       }
     }
   }, [pieceName, cellSize]);
 
   return (
-    <div className={`piece-preview ${small ? 'small' : ''}`}>
-      <canvas ref={canvasRef} />
+    <div className={`flex items-center justify-center ${small ? 'opacity-80' : ''}`}>
+      <canvas ref={canvasRef} className="block" />
     </div>
   );
 }
