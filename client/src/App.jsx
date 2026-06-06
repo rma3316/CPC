@@ -23,6 +23,8 @@ import './App.css';
  */
 export default function App() {
   const [screen, setScreen] = useState('login'); // login | mode | lobby | waiting | playing | result
+  const [playType, setPlayType] = useState('multi'); // 'single' | 'multi'
+  const [gameMode, setGameMode] = useState('vs'); // 'vs' | 'sprint' | 'marathon' | 'practice'
   const [chatMessages, setChatMessages] = useState([]);
   const [opponents, setOpponents] = useState({});
   const [allReady, setAllReady] = useState(false);
@@ -76,9 +78,26 @@ export default function App() {
     pauseGame,
     resumeGame,
   } = useTetris({
-    onLineCleared: sendLineCleared,
-    onGameOver: sendGameOver,
-    onStateUpdate: sendPlayerState,
+    onLineCleared: (lines) => {
+      // 멀티플레이 중이고 프랙티스가 아닐 때만 가비지 라인 전송
+      if (playType === 'multi' && gameMode !== 'practice') {
+        sendLineCleared(lines);
+      }
+    },
+    onGameOver: () => {
+      if (playType === 'multi') {
+        sendGameOver();
+      } else {
+        // 싱글플레이는 직접 결과창으로
+        setGameResult({ nickname: '나' }); // 패배지만 결과창을 띄우기 위해
+        setScreen('result');
+      }
+    },
+    onStateUpdate: (state) => {
+      if (playType === 'multi') {
+        sendPlayerState(state);
+      }
+    },
     keys,
   });
 
@@ -106,7 +125,8 @@ export default function App() {
         setScreen('playing');
         setChatMessages([]);
         setOpponents({});
-        tetrisStartGame();
+        // 모드를 tetrisStartGame에 전달하여 내부에서 목표(40줄 등)를 설정하게 함
+        tetrisStartGame({ mode: gameMode });
       },
 
       opponent_state: ({ playerId, board: opBoard }) => {
@@ -142,20 +162,23 @@ export default function App() {
         socket.off(event);
       }
     };
-  }, [socket, tetrisStartGame, receiveGarbage]);
+  }, [socket, tetrisStartGame, receiveGarbage, gameMode]);
 
   // --- 핸들러 ---
   const handleCreateRoom = useCallback(async (roomName) => {
-    const result = await createRoom(roomName);
+    // 생성 시 현재 선택한 gameMode를 함께 전달
+    const result = await createRoom(roomName, { mode: gameMode });
     if (result.success) {
       setScreen('waiting');
       setChatMessages([]);
     }
-  }, [createRoom]);
+  }, [createRoom, gameMode]);
 
   const handleJoinRoom = useCallback(async (roomId) => {
     const result = await joinRoom(roomId);
     if (result.success) {
+      // 참여한 방의 모드를 gameMode에 동기화
+      setGameMode(result.room.mode || 'vs');
       setScreen('waiting');
       setChatMessages([]);
     }
@@ -166,9 +189,13 @@ export default function App() {
   }, [socketStartGame]);
 
   const handleBackToWaiting = useCallback(() => {
-    setScreen('waiting');
+    if (playType === 'single') {
+      setScreen('mode');
+    } else {
+      setScreen('waiting');
+    }
     setGameResult(null);
-  }, []);
+  }, [playType]);
 
   const handleLeaveRoom = useCallback(async () => {
     await leaveRoom();
@@ -181,9 +208,17 @@ export default function App() {
     setScreen('mode');
   };
 
-  const handleSelectMode = (mode) => {
-    // mode: 'classic', 'sprint', 'marathon'
-    setScreen('lobby');
+  const handleSelectMode = ({ playType, mode }) => {
+    setPlayType(playType);
+    setGameMode(mode);
+    if (playType === 'single') {
+      setScreen('playing');
+      setChatMessages([]);
+      setOpponents({});
+      tetrisStartGame({ mode });
+    } else {
+      setScreen('lobby');
+    }
   };
 
   // --- 화면 렌더링 ---
@@ -237,7 +272,7 @@ export default function App() {
 
         <div className="glass-panel max-w-md w-full p-10 flex flex-col items-center justify-center relative z-10 animate-scale-in">
           <h1 className="font-headline text-5xl font-bold text-sky-950 mb-8 drop-shadow-md">GAME OVER</h1>
-          {gameResult && (
+          {gameResult && playType === 'multi' && (
             <div className="flex flex-col items-center bg-white/40 border border-sky-100 rounded-2xl p-6 w-full mb-8 shadow-sm">
               <span className="text-sm font-bold text-sky-600 mb-1">🏆 승자</span>
               <span className="font-headline text-2xl font-bold text-sky-900">{gameResult.nickname}</span>
@@ -258,7 +293,7 @@ export default function App() {
             </div>
           </div>
           <button className="glass-button !w-full h-14 rounded-xl font-bold text-lg" onClick={handleBackToWaiting}>
-            대기실로 돌아가기
+            {playType === 'single' ? '모드 선택으로' : '대기실로 돌아가기'}
           </button>
         </div>
       </div>
@@ -286,7 +321,7 @@ export default function App() {
         <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-sky-200/40 rounded-full blur-[120px]"></div>
       </div>
 
-      <div className="w-full max-w-[1400px] h-screen max-h-[900px] p-6 flex flex-col lg:flex-row gap-6 relative z-10">
+      <div className="w-full max-w-[1400px] h-screen max-h-[900px] p-6 flex flex-col lg:flex-row gap-6 relative z-10 justify-center">
         {/* 왼쪽: 점수 패널 */}
         <div className="w-full lg:w-64 flex flex-col h-full shrink-0">
           <ScorePanel
@@ -300,7 +335,7 @@ export default function App() {
         </div>
 
         {/* 중앙: 메인 보드 */}
-        <div className="flex-1 flex justify-center items-center h-full relative min-w-[350px]">
+        <div className="flex-1 flex justify-center items-center h-full relative min-w-[350px] max-w-[500px]">
           <GameBoard 
             board={board} 
             currentPiece={currentPiece} 
@@ -313,33 +348,35 @@ export default function App() {
             <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
               <div className="bg-white/80 backdrop-blur-md px-10 py-6 rounded-2xl shadow-2xl border border-sky-100 flex flex-col items-center transform -translate-y-10">
                 <span className="font-headline text-5xl font-bold text-red-500 drop-shadow-sm mb-2">GAME OVER</span>
-                <span className="text-sky-800 font-medium">결과를 기다리는 중...</span>
+                {playType === 'multi' && <span className="text-sky-800 font-medium">결과를 기다리는 중...</span>}
               </div>
             </div>
           )}
         </div>
 
-        {/* 오른쪽: 상대방 미니 보드 + 채팅 */}
-        <div className="w-full lg:w-80 flex flex-col gap-4 h-full shrink-0">
-          <div className="flex-1 grid grid-cols-2 gap-3 auto-rows-fr">
-            {opponentEntries.map(op => (
-              <MiniBoard
-                key={op.id}
-                board={op.board}
-                nickname={op.nickname}
-                alive={op.alive}
+        {/* 오른쪽: 싱글플레이면 숨김, 멀티플레이면 상대방 미니 보드 + 채팅 */}
+        {playType === 'multi' && (
+          <div className="w-full lg:w-80 flex flex-col gap-4 h-full shrink-0">
+            <div className="flex-1 grid grid-cols-2 gap-3 auto-rows-fr">
+              {opponentEntries.map(op => (
+                <MiniBoard
+                  key={op.id}
+                  board={op.board}
+                  nickname={op.nickname}
+                  alive={op.alive}
+                />
+              ))}
+            </div>
+            <div className="h-[300px] shrink-0 flex flex-col">
+              <Chat 
+                messages={chatMessages} 
+                onSendMessage={sendChatMessage} 
+                myId={socket?.id} 
+                onClearChat={() => setChatMessages([])}
               />
-            ))}
+            </div>
           </div>
-          <div className="h-[300px] shrink-0 flex flex-col">
-            <Chat 
-              messages={chatMessages} 
-              onSendMessage={sendChatMessage} 
-              myId={socket?.id} 
-              onClearChat={() => setChatMessages([])}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ let roomIdCounter = 1;
  * @param {string} roomName - 방 이름
  * @returns {object} 생성된 방 정보
  */
-export function createRoom(roomName) {
+export function createRoom(roomName, options = {}) {
   const roomId = `room_${roomIdCounter++}`;
   const room = {
     id: roomId,
@@ -31,6 +31,7 @@ export function createRoom(roomName) {
     players: new Map(),
     maxPlayers: 4,
     status: 'waiting',
+    mode: options.mode || 'vs', // 'vs' | 'sprint' | 'practice'
     createdAt: new Date(),
   };
   rooms.set(roomId, room);
@@ -226,10 +227,11 @@ function serializeRoom(room) {
   return {
     id: room.id,
     name: room.name,
-    hostId: room.hostId, // 방장 ID 추가
+    hostId: room.hostId,
     players: [...room.players.values()],
     maxPlayers: room.maxPlayers,
     status: room.status,
+    mode: room.mode || 'vs',
     playerCount: room.players.size,
   };
 }
