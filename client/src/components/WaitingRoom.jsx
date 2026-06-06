@@ -38,7 +38,7 @@ export default function WaitingRoom({
       <div className="cyber-bg" />
       <div className="waiting-room-content">
         <div className="waiting-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 className="title-glow waiting-title">TETRIS</h1>
+          <h1 className="title-glow waiting-title">테트릭</h1>
           <button className="btn-neon small cancel-btn" onClick={onLeaveRoom}>
             ← 로비로 돌아가기
           </button>

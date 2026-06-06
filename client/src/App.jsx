@@ -13,6 +13,8 @@ import GameBoard from './components/GameBoard';
 import MiniBoard from './components/MiniBoard';
 import ScorePanel from './components/ScorePanel';
 import Chat from './components/Chat';
+import LoginScreen from './components/LoginScreen';
+import ModeSelection from './components/ModeSelection';
 import './App.css';
 
 /**
@@ -20,7 +22,7 @@ import './App.css';
  *   'lobby' → 'waiting' → 'playing' → 'result' → 'waiting'
  */
 export default function App() {
-  const [screen, setScreen] = useState('lobby'); // lobby | waiting | playing | result
+  const [screen, setScreen] = useState('login'); // login | mode | lobby | waiting | playing | result
   const [chatMessages, setChatMessages] = useState([]);
   const [opponents, setOpponents] = useState({});
   const [allReady, setAllReady] = useState(false);
@@ -174,12 +176,29 @@ export default function App() {
     setChatMessages([]);
   }, [leaveRoom]);
 
+  const handleSetNickname = (name) => {
+    setNickname(name);
+    setScreen('mode');
+  };
+
+  const handleSelectMode = (mode) => {
+    // mode: 'classic', 'sprint', 'marathon'
+    setScreen('lobby');
+  };
+
   // --- 화면 렌더링 ---
+  if (screen === 'login') {
+    return <LoginScreen onSetNickname={handleSetNickname} />;
+  }
+
+  if (screen === 'mode') {
+    return <ModeSelection onSelectMode={handleSelectMode} />;
+  }
+
   if (screen === 'lobby') {
     return (
       <Lobby
         nickname={nickname}
-        onSetNickname={setNickname}
         rooms={rooms}
         onCreateRoom={handleCreateRoom}
         onJoinRoom={handleJoinRoom}
