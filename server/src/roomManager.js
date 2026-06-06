@@ -114,7 +114,8 @@ export function isAllReady(roomId) {
   // 방에 혼자 있을 때(싱글플레이 모드) 시작 버튼을 누를 수 있도록 true 반환
   if (room.players.size === 1) return true;
   for (const player of room.players.values()) {
-    if (!player.ready) return false;
+    // 방장은 준비(Ready)를 누르지 않고 시작(Start)을 누르므로 방장의 ready 상태는 무시
+    if (player.id !== room.hostId && !player.ready) return false;
   }
   return true;
 }

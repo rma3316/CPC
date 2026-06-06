@@ -358,6 +358,11 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     if (!isPlaying || isGameOver || isPaused) return;
 
     const handleKeyDown = (e) => {
+      // 채팅창 등 input/textarea에서 타이핑 중일 때는 테트리스 단축키 무시
+      if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        return;
+      }
+
       switch (e.key) {
         case keys.MOVE_LEFT:
           e.preventDefault();

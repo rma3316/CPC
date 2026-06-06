@@ -20,7 +20,7 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  // 윈도우 포커스 감지
+  // 윈도우 포커스 감지 (브라우저 탭을 벗어났을 때만 일시정지)
   useEffect(() => {
     const handleWindowBlur = () => {
       if (onPauseGame) onPauseGame();
@@ -30,17 +30,7 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
     return () => {
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [onPauseGame, onResumeGame]);
-
-  // 보드 영역 포커스 아웃 감지
-  const handleBoardBlur = () => {
-    if (onPauseGame) onPauseGame();
-  };
-
-  // 마우스 포인터가 게임창(보드) 내에서 벗어났을 때 감지
-  const handleMouseLeave = () => {
-    if (onPauseGame) onPauseGame();
-  };
+  }, [onPauseGame]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -121,8 +111,6 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
       className="relative flex items-center justify-center p-2 bg-white/20 backdrop-blur-md border-[4px] border-white/60 rounded-xl shadow-2xl shadow-sky-900/10 overflow-hidden" 
       ref={containerRef}
       tabIndex={0} 
-      onBlur={handleBoardBlur}
-      onMouseLeave={handleMouseLeave}
       style={{ outline: 'none' }}
     >
       <canvas

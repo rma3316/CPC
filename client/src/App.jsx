@@ -113,9 +113,10 @@ export default function App() {
       all_ready: () => setAllReady(true),
 
       room_updated: (room) => {
-        // allReady 재계산
-        if (room.players.length >= 2 && room.players.every(p => p.ready)) {
-          setAllReady(true);
+        // allReady 재계산 (방장을 제외한 나머지 플레이어가 모두 준비 상태인지 확인)
+        if (room.players.length >= 2) {
+          const othersReady = room.players.filter(p => p.id !== room.hostId).every(p => p.ready);
+          setAllReady(othersReady);
         } else {
           setAllReady(false);
         }

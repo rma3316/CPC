@@ -98,16 +98,19 @@ export default function WaitingRoom({
             </ul>
 
             <div className="mt-6 pt-5 border-t border-sky-100/80 flex justify-end gap-3">
-              <button
-                className={`glass-button !w-auto px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isReady ? 'ring-2 ring-emerald-400 bg-emerald-50 text-emerald-700' : ''}`}
-                onClick={onToggleReady}
-              >
-                {isReady ? <><span className="material-symbols-outlined text-lg">check_circle</span>준비 완료</> : '준비하기'}
-              </button>
-              {isHost && allReady && (
+              {!isHost && (
                 <button
-                  className="glass-button !w-auto px-8 py-3 rounded-xl font-bold text-sm !bg-sky-500 !text-white hover:!bg-sky-600 flex items-center gap-2 border-none shadow-lg shadow-sky-500/30 hover:scale-105"
-                  onClick={onStartGame}
+                  className={`glass-button !w-auto px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isReady ? 'ring-2 ring-emerald-400 bg-emerald-50 text-emerald-700' : ''}`}
+                  onClick={onToggleReady}
+                >
+                  {isReady ? <><span className="material-symbols-outlined text-lg">check_circle</span>준비 완료</> : '준비하기'}
+                </button>
+              )}
+              {isHost && (
+                <button
+                  className={`glass-button !w-auto px-8 py-3 rounded-xl font-bold text-sm flex items-center gap-2 border-none shadow-lg transition-all ${allReady ? '!bg-sky-500 !text-white hover:!bg-sky-600 shadow-sky-500/30 hover:scale-105' : '!bg-slate-300 !text-slate-500 shadow-none cursor-not-allowed opacity-70'}`}
+                  onClick={allReady ? onStartGame : undefined}
+                  disabled={!allReady}
                 >
                   <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
                   게임 시작
