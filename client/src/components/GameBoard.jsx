@@ -15,8 +15,10 @@ import {
  * @param {boolean} props.isPaused - 게임 일시정지 여부
  * @param {Function} props.onPauseGame - 게임 일시정지 핸들러
  * @param {Function} props.onResumeGame - 게임 재개 핸들러
+ * @param {Function} props.onOpenSettings - 설정 창 열기 핸들러
+ * @param {Function} props.onGoHome - 홈으로 돌아가기 핸들러
  */
-export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPauseGame, onResumeGame }) {
+export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPauseGame, onResumeGame, onOpenSettings, onGoHome }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -123,7 +125,11 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPau
       {isPaused && (
         <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center z-20">
           <h2 className="font-headline text-4xl font-bold text-sky-900 mb-6 drop-shadow-md tracking-widest">PAUSED</h2>
-          <button className="glass-button !w-auto px-8 py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform" onClick={onResumeGame}>RESUME</button>
+          <div className="flex flex-col gap-3 w-48">
+            <button className="glass-button !w-full h-12 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform" onClick={onResumeGame}>RESUME</button>
+            <button className="glass-button !w-full h-12 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform text-sky-800 bg-white/60" onClick={onOpenSettings}>SETTINGS</button>
+            <button className="glass-button !w-full h-12 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300" onClick={onGoHome}>GIVE UP</button>
+          </div>
         </div>
       )}
     </div>

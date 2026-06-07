@@ -63,10 +63,10 @@ export default {
               "full": "9999px"
           },
           "fontFamily": {
-              "headline": ["Inter", "sans-serif"],
-              "display": ["Inter", "sans-serif"],
-              "body": ["Inter", "sans-serif"],
-              "label": ["Inter", "sans-serif"]
+              "headline": ["var(--font-headline)", "Inter", "sans-serif"],
+              "display": ["var(--font-display)", "Inter", "sans-serif"],
+              "body": ["var(--font-body)", "Inter", "sans-serif"],
+              "label": ["var(--font-label)", "Inter", "sans-serif"]
           },
           "keyframes": {
               "fade-in": {
