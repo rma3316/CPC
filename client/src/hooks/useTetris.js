@@ -48,6 +48,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   const [isGameOver, setIsGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [combo, setCombo] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const pieceQueueRef = useRef(null);
   const dropTimerRef = useRef(null);
@@ -56,6 +57,8 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   const boardRef = useRef(board);
   const currentPieceRef = useRef(currentPiece);
   const isGameOverRef = useRef(false);
+  const gameModeRef = useRef('marathon'); // 'sprint' | 'marathon' | 'practice' | 'vs'
+  const isPausedRef = useRef(false);
   const comboRef = useRef(0);
 
   // Refs와 State 동기화
@@ -73,12 +76,14 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   }, []);
 
   // ---------- 게임 시작 ----------
-  const startGame = useCallback(() => {
+  const startGame = useCallback(({ mode } = {}) => {
     cancelLock();
     const newBoard = createBoard();
     pieceQueueRef.current = new PieceQueue();
     lockResetsRef.current = 0;
     comboRef.current = 0;
+    gameModeRef.current = mode || 'marathon';
+    isPausedRef.current = false;
 
     setBoard(newBoard);
     setScore(0);
@@ -88,6 +93,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     setCanHold(true);
     setIsGameOver(false);
     setIsPlaying(true);
+    setIsPaused(false);
     setCombo(0);
 
     boardRef.current = newBoard;
@@ -108,8 +114,23 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     const nextName = pieceQueueRef.current.next();
     const newPiece = spawnPiece(nextName);
 
-    // 스폰 위치에 충돌 -> 게임 오버
+    // 스폰 위치에 충돌 -> 게임 오버 (프랙티스 모드에서는 보드 리셋)
     if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.x, newPiece.y)) {
+      if (gameModeRef.current === 'practice') {
+        // 프랙티스: 보드만 리셋하고 계속 진행
+        const freshBoard = createBoard();
+        setBoard(freshBoard);
+        boardRef.current = freshBoard;
+        // 새 보드에서 다시 스폰 시도
+        const retryPiece = spawnPiece(nextName);
+        setCurrentPiece(retryPiece);
+        currentPieceRef.current = retryPiece;
+        setNextPieces(pieceQueueRef.current.preview(5));
+        setCanHold(true);
+        cancelLock();
+        lockResetsRef.current = 0;
+        return;
+      }
       setIsGameOver(true);
       setIsPlaying(false);
       isGameOverRef.current = true;
@@ -153,6 +174,15 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
       setTotalLines(prev => {
         const newTotal = prev + linesCleared;
         setLevel(Math.floor(newTotal / LINES_PER_LEVEL) + 1);
+
+        // 스프린트 모드: 40줄 달성 시 게임 종료 (승리)
+        if (gameModeRef.current === 'sprint' && newTotal >= 40) {
+          setIsGameOver(true);
+          setIsPlaying(false);
+          isGameOverRef.current = true;
+          onGameOver?.();
+        }
+
         return newTotal;
       });
 
@@ -292,9 +322,21 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     });
   }, []);
 
+  // ---------- 일시정지 ----------
+  const pauseGame = useCallback(() => {
+    if (!isPlaying || isGameOver) return;
+    setIsPaused(true);
+    isPausedRef.current = true;
+  }, [isPlaying, isGameOver]);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(false);
+    isPausedRef.current = false;
+  }, []);
+
   // ---------- 자동 낙하 ----------
   useEffect(() => {
-    if (!isPlaying || isGameOver) {
+    if (!isPlaying || isGameOver || isPaused) {
       clearInterval(dropTimerRef.current);
       return;
     }
@@ -309,13 +351,18 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     }, speed);
 
     return () => clearInterval(dropTimerRef.current);
-  }, [isPlaying, isGameOver, level, movePiece]);
+  }, [isPlaying, isGameOver, isPaused, level, movePiece]);
 
   // ---------- 키보드 입력 처리 ----------
   useEffect(() => {
-    if (!isPlaying || isGameOver) return;
+    if (!isPlaying || isGameOver || isPaused) return;
 
     const handleKeyDown = (e) => {
+      // 채팅창 등 input/textarea에서 타이핑 중일 때는 테트리스 단축키 무시
+      if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        return;
+      }
+
       switch (e.key) {
         case keys.MOVE_LEFT:
           e.preventDefault();
@@ -375,6 +422,9 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     isPlaying,
     combo,
     ghostY,
+    isPaused,
+    pauseGame,
+    resumeGame,
     startGame,
     movePiece,
     rotate,

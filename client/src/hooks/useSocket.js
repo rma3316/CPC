@@ -84,9 +84,9 @@ export function useSocket({ onKickedCallback } = {}) {
   }, []);
 
   // --- 방 생성 ---
-  const createRoom = useCallback((roomName) => {
+  const createRoom = useCallback((roomName, options = {}) => {
     return new Promise((resolve) => {
-      socketRef.current?.emit('create_room', { roomName, nickname }, (result) => {
+      socketRef.current?.emit('create_room', { roomName, nickname, options }, (result) => {
         if (result.success) setCurrentRoom(result.room);
         resolve(result);
       });

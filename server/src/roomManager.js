@@ -23,7 +23,7 @@ let roomIdCounter = 1;
  * @param {string} roomName - 방 이름
  * @returns {object} 생성된 방 정보
  */
-export function createRoom(roomName) {
+export function createRoom(roomName, options = {}) {
   const roomId = `room_${roomIdCounter++}`;
   const room = {
     id: roomId,
@@ -31,6 +31,7 @@ export function createRoom(roomName) {
     players: new Map(),
     maxPlayers: 4,
     status: 'waiting',
+    mode: options.mode || 'vs', // 'vs' | 'sprint' | 'practice'
     createdAt: new Date(),
   };
   rooms.set(roomId, room);
@@ -113,7 +114,8 @@ export function isAllReady(roomId) {
   // 방에 혼자 있을 때(싱글플레이 모드) 시작 버튼을 누를 수 있도록 true 반환
   if (room.players.size === 1) return true;
   for (const player of room.players.values()) {
-    if (!player.ready) return false;
+    // 방장은 준비(Ready)를 누르지 않고 시작(Start)을 누르므로 방장의 ready 상태는 무시
+    if (player.id !== room.hostId && !player.ready) return false;
   }
   return true;
 }
@@ -226,10 +228,11 @@ function serializeRoom(room) {
   return {
     id: room.id,
     name: room.name,
-    hostId: room.hostId, // 방장 ID 추가
+    hostId: room.hostId,
     players: [...room.players.values()],
     maxPlayers: room.maxPlayers,
     status: room.status,
+    mode: room.mode || 'vs',
     playerCount: room.players.size,
   };
 }

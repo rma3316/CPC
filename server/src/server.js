@@ -64,8 +64,8 @@ io.on('connection', (socket) => {
   });
 
   // --- 방 생성 ---
-  socket.on('create_room', ({ roomName, nickname }, callback) => {
-    const room = createRoom(roomName);
+  socket.on('create_room', ({ roomName, nickname, options }, callback) => {
+    const room = createRoom(roomName, options);
     const result = joinRoom(room.id, socket.id, nickname);
     if (result.success) {
       socket.join(room.id);
@@ -165,13 +165,17 @@ io.on('connection', (socket) => {
     const roomId = findRoomBySocketId(socket.id);
     if (!roomId) return;
 
+    const room = getRoom(roomId);
+    if (!room) return;
+
+    // practice/sprint 모드에서는 공격을 보내지 않음
+    const roomMode = room.mode || 'vs';
+    const shouldAttack = roomMode === 'vs';
+
     const { attack, score } = calculateAttack(linesCleared, isTSpin, combo);
 
-    // 공격이 있을 경우 대상에게 쓰레기 줄 전송
-    if (attack > 0) {
-      const room = getRoom(roomId);
-      if (!room) return;
-
+    // 공격이 있을 경우 대상에게 쓰레기 줄 전송 (VS 모드만)
+    if (attack > 0 && shouldAttack) {
       const alivePlayers = room.players
         .filter(p => p.alive)
         .map(p => p.id);
