@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function ModeSelection({ onSelectMode }) {
+export default function ModeSelection({ onSelectMode, onOpenSettings }) {
   const [step, setStep] = useState(1);
   const [playType, setPlayType] = useState(null); // 'single' | 'multi'
 
@@ -36,6 +36,13 @@ export default function ModeSelection({ onSelectMode }) {
           <p className="font-body text-lg text-sky-800 font-medium">
             {step === 1 ? '혼자 할지, 함께 할지 선택하세요' : '원하는 세부 규칙을 선택하세요'}
           </p>
+          <button 
+            className="absolute right-0 top-1/2 -translate-y-1/2 glass-button !w-auto px-4 py-2 flex items-center gap-2"
+            onClick={onOpenSettings}
+          >
+            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
+            설정
+          </button>
         </header>
         
         {step === 1 ? (

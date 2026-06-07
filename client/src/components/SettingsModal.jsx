@@ -11,7 +11,7 @@ const KEY_LABELS = {
   RESET: '리셋 (싱글플레이)',
 };
 
-export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume, setVolume }) {
+export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume, setVolume, fontTheme, setFontTheme }) {
   const [editingAction, setEditingAction] = useState(null);
   const [showKeySettings, setShowKeySettings] = useState(false);
 
@@ -66,6 +66,30 @@ export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume
                   value={volume}
                   onChange={(e) => setVolume(parseInt(e.target.value, 10))}
                 />
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <span className="font-headline font-semibold text-sky-900">폰트 테마</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'modern', label: '모던 (Pretendard)', fontClass: 'font-sans' },
+                    { id: 'retro', label: '레트로 (마루미냐)', fontClass: 'font-sans' },
+                    { id: 'casual', label: '캐주얼 (배민주아)', fontClass: 'font-sans' },
+                    { id: 'tech', label: '디지털 (Share Tech)', fontClass: 'font-sans' }
+                  ].map((theme) => (
+                    <button
+                      key={theme.id}
+                      className={`px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                        fontTheme === theme.id 
+                          ? 'bg-sky-500 text-white border-sky-600 shadow-md transform scale-[1.02]' 
+                          : 'bg-white/40 text-sky-800 border-sky-200 hover:bg-sky-50'
+                      } ${theme.fontClass}`}
+                      onClick={() => setFontTheme(theme.id)}
+                    >
+                      {theme.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               <div className="flex items-center justify-between bg-white/40 p-4 rounded-xl border border-sky-100 shadow-sm hover:shadow-md transition-shadow">

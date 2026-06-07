@@ -21,6 +21,11 @@ export function useSettings() {
     return saved !== null ? parseInt(saved, 10) : 50;
   });
 
+  const [fontTheme, setFontTheme] = useState(() => {
+    const saved = localStorage.getItem('tetris_font_theme');
+    return saved || 'modern';
+  });
+
   useEffect(() => {
     localStorage.setItem('tetris_keys', JSON.stringify(keys));
   }, [keys]);
@@ -29,9 +34,14 @@ export function useSettings() {
     localStorage.setItem('tetris_volume', volume.toString());
   }, [volume]);
 
+  useEffect(() => {
+    localStorage.setItem('tetris_font_theme', fontTheme);
+    document.documentElement.setAttribute('data-font-theme', fontTheme);
+  }, [fontTheme]);
+
   const updateKey = (action, newKey) => {
     setKeys(prev => ({ ...prev, [action]: newKey }));
   };
 
-  return { keys, updateKey, volume, setVolume };
+  return { keys, updateKey, volume, setVolume, fontTheme, setFontTheme };
 }

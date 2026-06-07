@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import SettingsModal from './SettingsModal';
 
 /**
  * @param {object} props
@@ -15,13 +14,11 @@ export default function Lobby({
   onCreateRoom,
   onJoinRoom,
   isConnected,
-  keys,
-  updateKey,
-  volume,
-  setVolume,
+  onOpenSettings,
+  onGoBack,
 }) {
   const [roomName, setRoomName] = useState('');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [roomMode, setRoomMode] = useState('vs');
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -54,7 +51,7 @@ export default function Lobby({
   const handleCreateRoom = (e) => {
     e.preventDefault();
     if (roomName.trim()) {
-      onCreateRoom(roomName.trim());
+      onCreateRoom(roomName.trim(), roomMode);
       setRoomName('');
     }
   };
@@ -91,7 +88,7 @@ export default function Lobby({
               </span>
               <button 
                 className="glass-button !w-auto px-4 py-2 text-sm flex items-center gap-2 rounded-lg"
-                onClick={() => setIsSettingsOpen(true)}
+                onClick={onOpenSettings}
                 style={{ width: 'auto' }}
               >
                 <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
@@ -99,6 +96,16 @@ export default function Lobby({
               </button>
             </div>
           </header>
+          
+          <div className="flex items-center gap-2 mb-6">
+            <button 
+              className="text-sm text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 bg-white/40 hover:bg-white/60 px-3 py-1.5 rounded-lg transition-all border border-sky-100 shadow-sm"
+              onClick={onGoBack}
+            >
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              모드 선택으로
+            </button>
+          </div>
 
           <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 방 만들기 패널 */}
@@ -117,6 +124,25 @@ export default function Lobby({
                     onChange={(e) => setRoomName(e.target.value)}
                     maxLength={20}
                   />
+                </div>
+                <div className="flex bg-white/40 rounded-xl p-1 border border-sky-100 shadow-sm">
+                  {[
+                    { id: 'vs', label: 'VS 대전', icon: 'swords' },
+                    { id: 'sprint', label: '스프린트', icon: 'timer' },
+                    { id: 'practice', label: '프랙티스', icon: 'school' }
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`flex-1 flex flex-col items-center justify-center py-2 rounded-lg text-xs font-bold transition-all ${
+                        roomMode === m.id ? 'bg-sky-500 text-white shadow-md scale-100' : 'text-sky-700 hover:bg-sky-100/50 hover:text-sky-900'
+                      }`}
+                      onClick={() => setRoomMode(m.id)}
+                    >
+                      {m.id === 'vs' ? <span>⚔️</span> : <span className="material-symbols-outlined text-[18px] mb-0.5">{m.icon}</span>}
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
                 <button
                   type="submit"
@@ -150,9 +176,14 @@ export default function Lobby({
                   </div>
                 ) : (
                   rooms.map((room) => (
-                    <div key={room.id} className="group relative overflow-hidden rounded-xl p-4 flex items-center justify-between transition-all duration-300 hover:bg-white/40 border border-sky-100/20 hover:border-sky-300/30 shadow-sm hover:shadow-md bg-white/20 backdrop-blur-sm">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-headline font-bold text-lg text-sky-950">{room.name}</span>
+                    <div key={room.id} className="group relative overflow-hidden rounded-xl p-4 flex flex-col gap-2 transition-all duration-300 hover:bg-white/40 border border-sky-100/20 hover:border-sky-300/30 shadow-sm hover:shadow-md bg-white/20 backdrop-blur-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-headline font-bold text-lg text-sky-950 truncate max-w-[60%]">{room.name}</span>
+                        <span className="px-2 py-1 rounded-md text-[10px] font-bold tracking-wider bg-indigo-100 text-indigo-700 whitespace-nowrap">
+                          {room.mode === 'vs' ? 'VS 대전' : room.mode === 'sprint' ? '스프린트' : '프랙티스'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
                         <div className="flex items-center gap-3 text-xs font-medium text-sky-700">
                           <span className="flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">group</span>
@@ -165,15 +196,15 @@ export default function Lobby({
                             {room.status === 'waiting' ? '대기 중' : room.status === 'playing' ? '게임 중' : '종료'}
                           </span>
                         </div>
+                        <button
+                          className="glass-button !w-auto px-6 py-1.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                          onClick={() => onJoinRoom(room.id)}
+                          disabled={room.status !== 'waiting' || room.playerCount >= room.maxPlayers}
+                          style={{ width: 'auto' }}
+                        >
+                          참가하기
+                        </button>
                       </div>
-                      <button
-                        className="glass-button !w-auto px-6 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        onClick={() => onJoinRoom(room.id)}
-                        disabled={room.status !== 'waiting' || room.playerCount >= room.maxPlayers}
-                        style={{ width: 'auto' }}
-                      >
-                        참가하기
-                      </button>
                     </div>
                   ))
                 )}
@@ -181,15 +212,6 @@ export default function Lobby({
             </div>
           </div>
         </div>
-        
-        <SettingsModal 
-          isOpen={isSettingsOpen} 
-          onClose={() => setIsSettingsOpen(false)} 
-          keys={keys}
-          updateKey={updateKey}
-          volume={volume}
-          setVolume={setVolume}
-        />
       </main>
     </div>
   );

@@ -1,0 +1,83 @@
+/* ============================================================
+   fonts.css - 폰트 선언 및 테마별 폰트 변수 설정
+   ============================================================ */
+
+/* 1. 모던 (Pretendard) */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400;
+  font-style: normal;
+  src: url('/fonts/Pretendard-Regular.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 700;
+  font-style: normal;
+  src: url('/fonts/Pretendard-Bold.otf') format('opentype');
+}
+
+/* 2. 레트로 (마루미냐) */
+@font-face {
+  font-family: 'MaruMinya';
+  font-weight: 400;
+  font-style: normal;
+  src: url('/fonts/x12y12pxMaruMinyaHangul.ttf') format('truetype');
+}
+
+/* 3. 캐주얼 (배민 주아체) */
+@font-face {
+  font-family: 'BMJUA';
+  font-weight: 400;
+  font-style: normal;
+  src: url('/fonts/BMJUA_ttf.ttf') format('truetype');
+}
+
+/* 4. 디지털/테크 (Share Tech Mono / Orbitron) */
+@font-face {
+  font-family: 'ShareTechMono';
+  font-weight: 400;
+  font-style: normal;
+  src: url('/fonts/ShareTechMono-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  font-weight: 400 900; /* Variable font */
+  font-style: normal;
+  src: url('/fonts/Orbitron-VariableFont_wght.ttf') format('truetype');
+}
+
+/* 테마별 폰트 변수 매핑 */
+:root,
+[data-font-theme="modern"] {
+  --font-headline: 'Pretendard', sans-serif;
+  --font-display: 'Pretendard', sans-serif;
+  --font-body: 'Pretendard', sans-serif;
+  --font-label: 'Pretendard', sans-serif;
+  --font-mono: 'Pretendard', monospace;
+}
+
+[data-font-theme="retro"] {
+  --font-headline: 'MaruMinya', 'Pretendard', sans-serif;
+  --font-display: 'MaruMinya', 'Pretendard', sans-serif;
+  --font-body: 'MaruMinya', 'Pretendard', sans-serif;
+  --font-label: 'MaruMinya', 'Pretendard', sans-serif;
+  --font-mono: 'MaruMinya', monospace;
+}
+
+[data-font-theme="casual"] {
+  --font-headline: 'BMJUA', 'Pretendard', sans-serif;
+  --font-display: 'BMJUA', 'Pretendard', sans-serif;
+  --font-body: 'BMJUA', 'Pretendard', sans-serif;
+  --font-label: 'BMJUA', 'Pretendard', sans-serif;
+  --font-mono: 'BMJUA', monospace;
+}
+
+[data-font-theme="tech"] {
+  --font-headline: 'Orbitron', 'ShareTechMono', sans-serif;
+  --font-display: 'Orbitron', 'ShareTechMono', sans-serif;
+  --font-body: 'ShareTechMono', 'Pretendard', sans-serif;
+  --font-label: 'ShareTechMono', 'Pretendard', sans-serif;
+  --font-mono: 'ShareTechMono', monospace;
+}
