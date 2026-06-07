@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Chat from './Chat';
 
 /**
@@ -22,10 +23,30 @@ export default function WaitingRoom({
   onClearChat,
   onTransferHost,
   onKickPlayer,
+  onUpdateRoomSettings,
 }) {
   const myPlayer = room?.players?.find(p => p.id === myId);
   const isReady = myPlayer?.ready || false;
   const isHost = room?.hostId === myId;
+
+  const [localGravity, setLocalGravity] = useState(room?.gravity !== undefined ? room.gravity.toFixed(4) : '0.0100');
+
+  useEffect(() => {
+    if (room?.gravity !== undefined) {
+      setLocalGravity(room.gravity.toFixed(4));
+    }
+  }, [room?.gravity]);
+
+  const handleGravityBlur = () => {
+    let val = parseFloat(localGravity);
+    if (isNaN(val) || val < 0) {
+      val = 0.0100;
+    }
+    setLocalGravity(val.toFixed(4));
+    if (onUpdateRoomSettings) {
+      onUpdateRoomSettings({ gravity: val.toFixed(4) });
+    }
+  };
 
   return (
     <div className="bg-atmosphere min-h-screen w-full flex flex-col items-center justify-center relative font-body text-sky-950 overflow-hidden" style={{ margin: 0, padding: 0 }}>
@@ -97,7 +118,24 @@ export default function WaitingRoom({
               ))}
             </ul>
 
-            <div className="mt-6 pt-5 border-t border-sky-100/80 flex justify-end gap-3">
+            <div className="mt-6 pt-5 border-t border-sky-100/80 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-xl border border-sky-100 shadow-sm">
+                <span className="material-symbols-outlined text-sky-600 text-lg">public</span>
+                <span className="text-sm font-bold text-sky-800">중력(Gravity):</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  className="glass-input w-24 h-8 px-2 rounded-md text-sm font-medium text-center disabled:opacity-50 disabled:cursor-not-allowed bg-white/60 focus:bg-white"
+                  value={localGravity}
+                  onChange={(e) => setLocalGravity(e.target.value)}
+                  onBlur={handleGravityBlur}
+                  disabled={!isHost}
+                  title={isHost ? "중력 값을 설정하세요 (예: 0.0100)" : "방장만 변경 가능합니다"}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
               {!isHost && (
                 <button
                   className={`glass-button !w-auto px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isReady ? 'ring-2 ring-emerald-400 bg-emerald-50 text-emerald-700' : ''}`}
@@ -116,6 +154,7 @@ export default function WaitingRoom({
                   게임 시작
                 </button>
               )}
+              </div>
             </div>
           </div>
 

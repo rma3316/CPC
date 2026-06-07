@@ -60,6 +60,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   const gameModeRef = useRef('marathon'); // 'sprint' | 'marathon' | 'practice' | 'vs'
   const isPausedRef = useRef(false);
   const comboRef = useRef(0);
+  const gravityRef = useRef(0.0100);
 
   // Refs와 State 동기화
   useEffect(() => { boardRef.current = board; }, [board]);
@@ -76,7 +77,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   }, []);
 
   // ---------- 게임 시작 ----------
-  const startGame = useCallback(({ mode } = {}) => {
+  const startGame = useCallback(({ mode, gravity = 0.0100 } = {}) => {
     cancelLock();
     const newBoard = createBoard();
     pieceQueueRef.current = new PieceQueue();
@@ -84,6 +85,7 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     comboRef.current = 0;
     gameModeRef.current = mode || 'marathon';
     isPausedRef.current = false;
+    gravityRef.current = parseFloat(gravity);
 
     setBoard(newBoard);
     setScore(0);
@@ -341,8 +343,14 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
       return;
     }
 
+    if (gravityRef.current === 0) {
+      clearInterval(dropTimerRef.current);
+      return;
+    }
+
+    const baseSpeed = 10 / gravityRef.current;
     const speed = Math.max(
-      INITIAL_DROP_SPEED - (level - 1) * SPEED_DECREASE_PER_LEVEL,
+      baseSpeed - (level - 1) * SPEED_DECREASE_PER_LEVEL,
       MIN_DROP_SPEED
     );
 

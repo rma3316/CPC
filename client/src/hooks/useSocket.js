@@ -27,6 +27,7 @@ import { SERVER_URL } from '../game/constants';
  *   sendChatMessage: Function,
  *   transferHost: Function,
  *   kickPlayer: Function,
+ *   updateRoomSettings: Function,
  *   leaveRoom: Function,
  *   onKicked: Function,
  * }}
@@ -143,6 +144,11 @@ export function useSocket({ onKickedCallback } = {}) {
     socketRef.current?.emit('kick_player', { targetId });
   }, []);
 
+  // --- 방 설정 변경 ---
+  const updateRoomSettings = useCallback((settings) => {
+    socketRef.current?.emit('update_room_settings', { settings });
+  }, []);
+
   // --- 방 나가기 ---
   const leaveRoom = useCallback(() => {
     return new Promise((resolve) => {
@@ -170,6 +176,7 @@ export function useSocket({ onKickedCallback } = {}) {
     sendChatMessage,
     transferHost,
     kickPlayer,
+    updateRoomSettings,
     leaveRoom,
   };
 }

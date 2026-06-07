@@ -22,6 +22,7 @@ import {
   findRoomBySocketId,
   transferHost,
   kickPlayer,
+  updateRoomSettings,
 } from './roomManager.js';
 
 import {
@@ -123,6 +124,17 @@ io.on('connection', (socket) => {
     const roomId = findRoomBySocketId(socket.id);
     if (!roomId) return;
     const room = transferHost(roomId, socket.id, targetId);
+    if (room) {
+      io.to(roomId).emit('room_updated', room);
+      io.emit('room_list_updated', getRoomList());
+    }
+  });
+
+  // --- 방 설정 변경 ---
+  socket.on('update_room_settings', ({ settings }) => {
+    const roomId = findRoomBySocketId(socket.id);
+    if (!roomId) return;
+    const room = updateRoomSettings(roomId, socket.id, settings);
     if (room) {
       io.to(roomId).emit('room_updated', room);
       io.emit('room_list_updated', getRoomList());

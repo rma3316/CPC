@@ -32,6 +32,7 @@ export function createRoom(roomName, options = {}) {
     maxPlayers: 4,
     status: 'waiting',
     mode: options.mode || 'vs', // 'vs' | 'sprint' | 'practice'
+    gravity: options.gravity !== undefined ? parseFloat(options.gravity) : 0.0100,
     createdAt: new Date(),
   };
   rooms.set(roomId, room);
@@ -222,6 +223,22 @@ export function kickPlayer(roomId, hostId, targetId) {
   return { success: false };
 }
 
+/**
+ * 방 설정 업데이트 (방장 권한)
+ */
+export function updateRoomSettings(roomId, hostId, settings) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  if (room.hostId === hostId) {
+    if (settings.gravity !== undefined) {
+      room.gravity = parseFloat(settings.gravity);
+    }
+    // 다른 설정이 있다면 여기에 추가
+    return serializeRoom(room);
+  }
+  return null;
+}
+
 // ---------- Helpers ----------
 
 function serializeRoom(room) {
@@ -233,6 +250,7 @@ function serializeRoom(room) {
     maxPlayers: room.maxPlayers,
     status: room.status,
     mode: room.mode || 'vs',
+    gravity: room.gravity !== undefined ? room.gravity : 0.0100,
     playerCount: room.players.size,
   };
 }

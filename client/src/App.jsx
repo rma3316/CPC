@@ -54,6 +54,7 @@ export default function App() {
     sendChatMessage,
     transferHost,
     kickPlayer,
+    updateRoomSettings,
     leaveRoom,
   } = useSocket({ onKickedCallback: handleKicked });
 
@@ -123,12 +124,12 @@ export default function App() {
         }
       },
 
-      game_started: () => {
+      game_started: (room) => {
         setScreen('playing');
         setChatMessages([]);
         setOpponents({});
         // 모드를 tetrisStartGame에 전달하여 내부에서 목표(40줄 등)를 설정하게 함
-        tetrisStartGame({ mode: gameMode });
+        tetrisStartGame({ mode: gameMode, gravity: room?.gravity });
       },
 
       opponent_state: ({ playerId, board: opBoard }) => {
@@ -217,7 +218,7 @@ export default function App() {
       setScreen('playing');
       setChatMessages([]);
       setOpponents({});
-      tetrisStartGame({ mode });
+      tetrisStartGame({ mode, gravity: 0.0100 });
     } else {
       setScreen('lobby');
     }
@@ -278,6 +279,7 @@ export default function App() {
           onClearChat={() => setChatMessages([])}
           onTransferHost={transferHost}
           onKickPlayer={kickPlayer}
+          onUpdateRoomSettings={updateRoomSettings}
         />
       );
     }
