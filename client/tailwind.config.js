@@ -67,6 +67,20 @@ export default {
               "display": ["Inter", "sans-serif"],
               "body": ["Inter", "sans-serif"],
               "label": ["Inter", "sans-serif"]
+          },
+          "keyframes": {
+              "fade-in": {
+                  "0%": { opacity: 0, transform: "scale(0.98)" },
+                  "100%": { opacity: 1, transform: "scale(1)" }
+              },
+              "fade-out": {
+                  "0%": { opacity: 1, transform: "scale(1)" },
+                  "100%": { opacity: 0, transform: "scale(0.98)" }
+              }
+          },
+          "animation": {
+              "fade-in": "fade-in 0.3s ease-out forwards",
+              "fade-out": "fade-out 0.3s ease-in forwards"
           }
       }
   },

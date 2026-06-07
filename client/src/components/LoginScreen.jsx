@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 
 export default function LoginScreen({ onSetNickname }) {
   const [nicknameInput, setNicknameInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+
+  useEffect(() => {
+    if (nicknameInput) {
+      setIsTyping(true);
+      const timer = setTimeout(() => setIsTyping(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [nicknameInput]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -32,13 +42,16 @@ export default function LoginScreen({ onSetNickname }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (nicknameInput.trim()) {
-      onSetNickname(nicknameInput.trim());
+    if (nicknameInput.trim() && !isFadingOut) {
+      setIsFadingOut(true);
+      setTimeout(() => {
+        onSetNickname(nicknameInput.trim());
+      }, 300); // fade-out 애니메이션 시간(0.3초) 대기 후 화면 전환
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative antialiased selection:bg-sky-500/30 selection:text-sky-700 bg-atmosphere overflow-hidden" style={{ margin: 0, padding: 0 }}>
+    <div className={`min-h-screen w-full flex items-center justify-center relative antialiased selection:bg-sky-500/30 selection:text-sky-700 bg-atmosphere overflow-hidden ${isFadingOut ? 'animate-fade-out' : 'animate-fade-in'}`} style={{ margin: 0, padding: 0 }}>
       {/* Abstract Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="tetrimino tetrimino-i"></div>
@@ -80,7 +93,7 @@ export default function LoginScreen({ onSetNickname }) {
                 </span>
                 <input 
                   autoComplete="off" 
-                  className="glass-input w-full h-14 pl-12 pr-4 rounded-xl text-slate-800 placeholder:text-slate-500/70 font-body text-base" 
+                  className={`glass-input w-full h-14 pl-12 pr-4 rounded-xl text-slate-800 placeholder:text-slate-500/70 font-body text-base transition-all duration-100 ${isTyping ? 'scale-[1.03] bg-white/90 shadow-[0_0_20px_rgba(14,165,233,0.3)]' : 'scale-100'}`}
                   id="userId" 
                   placeholder="아이디를 입력하세요" 
                   required 

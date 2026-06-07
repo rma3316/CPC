@@ -14,7 +14,7 @@ export default function ModeSelection({ onSelectMode }) {
   };
 
   return (
-    <div className="bg-atmosphere text-sky-950 font-body min-h-screen flex flex-col items-center justify-center relative overflow-hidden w-full" style={{ margin: 0, padding: 0 }}>
+    <div className="bg-atmosphere text-sky-950 font-body min-h-screen flex flex-col items-center justify-center relative overflow-hidden w-full animate-fade-in" style={{ margin: 0, padding: 0 }}>
       {/* Ambient background shapes */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-200/50 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-300/40 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
@@ -73,7 +73,7 @@ export default function ModeSelection({ onSelectMode }) {
                   onClick={() => handleSelectSubMode('sprint')} 
                 />
                 <ModeCard 
-                  icon="incognito" title="마라톤" desc="끝없는 생존과 점수 갱신" 
+                  icon="all_inclusive" title="마라톤" desc="끝없는 생존과 점수 갱신" 
                   onClick={() => handleSelectSubMode('marathon')} 
                 />
                 <ModeCard 
@@ -108,7 +108,7 @@ export default function ModeSelection({ onSelectMode }) {
 function ModeCard({ icon, title, desc, onClick, isMaterial = true }) {
   return (
     <button 
-      className="glass-panel group relative overflow-hidden rounded-2xl p-8 flex flex-col items-center justify-center aspect-square transition-all duration-300 hover:-translate-y-2 hover:bg-white/70 shadow-md hover:shadow-xl"
+      className="glass-panel group relative overflow-hidden rounded-2xl p-8 flex flex-col items-center justify-center aspect-square transition-all duration-300 hover:-translate-y-2 hover:bg-white/70 shadow-md hover:shadow-xl active:scale-95"
       onClick={onClick}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-sky-100/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
