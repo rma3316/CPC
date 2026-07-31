@@ -6,8 +6,6 @@
 import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
-  LOCK_DELAY,
-  MAX_LOCK_RESETS,
 } from './constants.js';
 import {
   TETROMINOS,
@@ -139,8 +137,16 @@ export function getGhostPosition(board, piece) {
 
 // ---------- 쓰레기 줄 추가 ----------
 export function addGarbageLines(board, garbageLines) {
-  const newBoard = board.slice(garbageLines.length);
-  return [...newBoard, ...garbageLines];
+  const safeLines = garbageLines
+    .slice(-BOARD_HEIGHT)
+    .map(row => Array.from(
+      { length: BOARD_WIDTH },
+      (_, index) => Number.isInteger(row?.[index]) && row[index] >= 0 && row[index] <= 8
+        ? row[index]
+        : 0
+    ));
+  const retainedRows = board.slice(Math.min(safeLines.length, BOARD_HEIGHT));
+  return [...retainedRows, ...safeLines];
 }
 
 // ---------- T-Spin 판별 ----------

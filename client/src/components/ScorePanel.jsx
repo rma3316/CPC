@@ -10,8 +10,9 @@ import { PIECE_COLORS } from '../game/constants';
  * @param {number} props.combo
  * @param {string|null} props.holdPiece - 홀드 중인 피스 이름
  * @param {string[]} props.nextPieces - 다음 피스 이름 목록 (최대 5)
+ * @param {number} props.elapsedTime - 경과 시간(ms)
  */
-export default function ScorePanel({ score, level, totalLines, combo, holdPiece, nextPieces }) {
+export default function ScorePanel({ score, level, totalLines, combo, holdPiece, nextPieces, elapsedTime = 0 }) {
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Hold */}
@@ -40,6 +41,11 @@ export default function ScorePanel({ score, level, totalLines, combo, holdPiece,
           </div>
         </div>
 
+        <div className="flex flex-col items-center bg-white/40 rounded-xl p-3 border border-sky-100/50 shadow-sm">
+          <span className="font-headline text-xs font-bold text-sky-600 mb-1 tracking-wider">TIME</span>
+          <span className="font-headline text-xl font-bold text-sky-900 tabular-nums">{formatElapsedTime(elapsedTime)}</span>
+        </div>
+
         {combo > 1 && (
           <div className="mt-2 flex flex-col items-center bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl p-3 border border-orange-200 shadow-sm animate-pulse-fast">
             <span className="font-headline text-xs font-bold text-orange-600 mb-1 tracking-wider">COMBO</span>
@@ -61,6 +67,14 @@ export default function ScorePanel({ score, level, totalLines, combo, holdPiece,
       </div>
     </div>
   );
+}
+
+function formatElapsedTime(milliseconds) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  const tenths = Math.floor((milliseconds % 1000) / 100);
+  return `${minutes}:${seconds}.${tenths}`;
 }
 
 /** 작은 캔버스에 피스 미리보기를 그립니다 */

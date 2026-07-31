@@ -13,26 +13,27 @@ import {
  * @param {object|null} props.currentPiece - 현재 피스
  * @param {number|null} props.ghostY - 고스트 피스 Y 위치
  * @param {boolean} props.isPaused - 게임 일시정지 여부
+ * @param {boolean} props.canPause - 현재 모드에서 일시정지를 허용하는지 여부
  * @param {Function} props.onPauseGame - 게임 일시정지 핸들러
  * @param {Function} props.onResumeGame - 게임 재개 핸들러
  * @param {Function} props.onOpenSettings - 설정 창 열기 핸들러
  * @param {Function} props.onGoHome - 홈으로 돌아가기 핸들러
  */
-export default function GameBoard({ board, currentPiece, ghostY, isPaused, onPauseGame, onResumeGame, onOpenSettings, onGoHome }) {
+export default function GameBoard({ board, currentPiece, ghostY, isPaused, canPause = true, onPauseGame, onResumeGame, onOpenSettings, onGoHome }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
   // 윈도우 포커스 감지 (브라우저 탭을 벗어났을 때만 일시정지)
   useEffect(() => {
     const handleWindowBlur = () => {
-      if (onPauseGame) onPauseGame();
+      if (canPause && onPauseGame) onPauseGame();
     };
 
     window.addEventListener('blur', handleWindowBlur);
     return () => {
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [onPauseGame]);
+  }, [canPause, onPauseGame]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

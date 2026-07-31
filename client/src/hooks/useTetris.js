@@ -1,6 +1,5 @@
 // ============================================================
 //  useTetris.js - 테트리스 게임 상태 관리 React Hook
-//  담당: 개발자 A (게임 엔진 담당)
 // ============================================================
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -27,16 +26,27 @@ import {
   KEY_BINDINGS,
 } from '../game/constants';
 
+const NORMAL_LINE_SCORES = [0, 100, 300, 500, 800];
+const T_SPIN_SCORES = [400, 800, 1200, 1600];
+
+function getLineClearScore(linesCleared, isTSpin, level, combo) {
+  const table = isTSpin ? T_SPIN_SCORES : NORMAL_LINE_SCORES;
+  const baseScore = table[Math.min(linesCleared, table.length - 1)] || 0;
+  const comboBonus = linesCleared > 0 ? Math.max(0, combo - 1) * 50 : 0;
+  return (baseScore + comboBonus) * level;
+}
+
 /**
- * 테트리스 게임 전체 상태와 로직을 관리하는 커스텀 훅
- *
- * @param {object} options
- * @param {Function} options.onLineCleared - 줄 제거 시 콜백 (서버 전송용)
- * @param {Function} options.onGameOver - 게임 오버 시 콜백
- * @param {Function} options.onStateUpdate - 상태 업데이트 시 콜백 (상대방에게 전송)
- * @returns {object}
+ * 테트리스 게임 전체 상태와 입력, 타이머를 관리합니다.
  */
-export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY_BINDINGS } = {}) {
+export function useTetris({
+  onLineCleared,
+  onGameOver,
+  onStateUpdate,
+  onSound,
+  keys = KEY_BINDINGS,
+  canReset = true,
+} = {}) {
   const [board, setBoard] = useState(createBoard());
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -49,6 +59,8 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   const [isPlaying, setIsPlaying] = useState(false);
   const [combo, setCombo] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isSoftDropping, setIsSoftDropping] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const pieceQueueRef = useRef(null);
   const dropTimerRef = useRef(null);
@@ -56,18 +68,21 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
   const lockResetsRef = useRef(0);
   const boardRef = useRef(board);
   const currentPieceRef = useRef(currentPiece);
+  const holdPieceRef = useRef(holdPiece);
+  const canHoldRef = useRef(canHold);
+  const scoreRef = useRef(score);
+  const levelRef = useRef(level);
+  const totalLinesRef = useRef(totalLines);
+  const comboRef = useRef(combo);
   const isGameOverRef = useRef(false);
-  const gameModeRef = useRef('marathon'); // 'sprint' | 'marathon' | 'practice' | 'vs'
+  const isPlayingRef = useRef(false);
   const isPausedRef = useRef(false);
-  const comboRef = useRef(0);
+  const gameModeRef = useRef('marathon');
+  const lastActionRef = useRef(null);
+  const gameStartedAtRef = useRef(null);
+  const pausedAtRef = useRef(null);
+  const totalPausedTimeRef = useRef(0);
 
-  // Refs와 State 동기화
-  useEffect(() => { boardRef.current = board; }, [board]);
-  useEffect(() => { currentPieceRef.current = currentPiece; }, [currentPiece]);
-  useEffect(() => { isGameOverRef.current = isGameOver; }, [isGameOver]);
-  useEffect(() => { comboRef.current = combo; }, [combo]);
-
-  // ---------- 잠금 취소 ----------
   const cancelLock = useCallback(() => {
     if (lockTimerRef.current) {
       clearTimeout(lockTimerRef.current);
@@ -75,14 +90,78 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     }
   }, []);
 
-  // ---------- 게임 시작 ----------
+  const clearDropTimer = useCallback(() => {
+    if (dropTimerRef.current) {
+      clearInterval(dropTimerRef.current);
+      dropTimerRef.current = null;
+    }
+  }, []);
+
+  const addScore = useCallback((points) => {
+    if (points <= 0) return;
+    scoreRef.current += points;
+    setScore(scoreRef.current);
+  }, []);
+
+  const finishGame = useCallback((reason = 'top-out') => {
+    if (isGameOverRef.current) return;
+
+    cancelLock();
+    clearDropTimer();
+    isGameOverRef.current = true;
+    isPlayingRef.current = false;
+    isPausedRef.current = false;
+    setIsGameOver(true);
+    setIsPlaying(false);
+    setIsPaused(false);
+    setIsSoftDropping(false);
+    if (gameStartedAtRef.current) {
+      const pausedDuration = pausedAtRef.current ? Date.now() - pausedAtRef.current : 0;
+      setElapsedTime(Date.now() - gameStartedAtRef.current - totalPausedTimeRef.current - pausedDuration);
+    }
+    onSound?.(reason === 'sprint-complete' ? 'success' : 'gameOver');
+    onGameOver?.({ reason, mode: gameModeRef.current });
+  }, [cancelLock, clearDropTimer, onGameOver, onSound]);
+
+  const stopGame = useCallback(() => {
+    if (!isPlayingRef.current) return;
+    cancelLock();
+    clearDropTimer();
+    isPlayingRef.current = false;
+    isGameOverRef.current = true;
+    isPausedRef.current = false;
+    setIsPlaying(false);
+    setIsGameOver(true);
+    setIsPaused(false);
+    setIsSoftDropping(false);
+    if (gameStartedAtRef.current) {
+      const pausedDuration = pausedAtRef.current ? Date.now() - pausedAtRef.current : 0;
+      setElapsedTime(Date.now() - gameStartedAtRef.current - totalPausedTimeRef.current - pausedDuration);
+    }
+  }, [cancelLock, clearDropTimer]);
+
   const startGame = useCallback(({ mode } = {}) => {
     cancelLock();
+    clearDropTimer();
+
     const newBoard = createBoard();
+    const nextMode = mode || gameModeRef.current || 'marathon';
     pieceQueueRef.current = new PieceQueue();
+    gameModeRef.current = nextMode;
     lockResetsRef.current = 0;
+    lastActionRef.current = null;
+    gameStartedAtRef.current = Date.now();
+    pausedAtRef.current = null;
+    totalPausedTimeRef.current = 0;
+    boardRef.current = newBoard;
+    scoreRef.current = 0;
+    levelRef.current = 1;
+    totalLinesRef.current = 0;
     comboRef.current = 0;
-    gameModeRef.current = mode || 'marathon';
+    holdPieceRef.current = null;
+    canHoldRef.current = true;
+    isGameOverRef.current = false;
+    isPlayingRef.current = true;
     isPausedRef.current = false;
 
     setBoard(newBoard);
@@ -94,321 +173,374 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     setIsGameOver(false);
     setIsPlaying(true);
     setIsPaused(false);
+    setIsSoftDropping(false);
+    setElapsedTime(0);
     setCombo(0);
 
-    boardRef.current = newBoard;
-    isGameOverRef.current = false;
-
-    // 첫 피스 스폰
     const firstPieceName = pieceQueueRef.current.next();
     const firstPiece = spawnPiece(firstPieceName);
-    setCurrentPiece(firstPiece);
     currentPieceRef.current = firstPiece;
+    setCurrentPiece(firstPiece);
     setNextPieces(pieceQueueRef.current.preview(5));
-  }, []);
+    onSound?.('start');
+    onStateUpdate?.({ board: newBoard, score: 0, lines: 0 });
+  }, [cancelLock, clearDropTimer, onSound, onStateUpdate]);
 
-  // ---------- 다음 피스 스폰 ----------
-  const spawnNext = useCallback(() => {
-    if (!pieceQueueRef.current) return;
+  const spawnNext = useCallback(({ resetHold = true } = {}) => {
+    if (!pieceQueueRef.current || isGameOverRef.current) return false;
 
-    const nextName = pieceQueueRef.current.next();
-    const newPiece = spawnPiece(nextName);
-
-    // 스폰 위치에 충돌 -> 게임 오버 (프랙티스 모드에서는 보드 리셋)
-    if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.x, newPiece.y)) {
-      if (gameModeRef.current === 'practice') {
-        // 프랙티스: 보드만 리셋하고 계속 진행
-        const freshBoard = createBoard();
-        setBoard(freshBoard);
-        boardRef.current = freshBoard;
-        // 새 보드에서 다시 스폰 시도
-        const retryPiece = spawnPiece(nextName);
-        setCurrentPiece(retryPiece);
-        currentPieceRef.current = retryPiece;
-        setNextPieces(pieceQueueRef.current.preview(5));
-        setCanHold(true);
-        cancelLock();
-        lockResetsRef.current = 0;
-        return;
-      }
-      setIsGameOver(true);
-      setIsPlaying(false);
-      isGameOverRef.current = true;
-      onGameOver?.();
-      return;
-    }
-
-    setCurrentPiece(newPiece);
-    currentPieceRef.current = newPiece;
-    setNextPieces(pieceQueueRef.current.preview(5));
-    setCanHold(true);
     cancelLock();
     lockResetsRef.current = 0;
-  }, [onGameOver]);
+    lastActionRef.current = null;
 
-  // ---------- 피스 고정 처리 ----------
+    const nextName = pieceQueueRef.current.next();
+    let newPiece = spawnPiece(nextName);
+
+    if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.x, newPiece.y)) {
+      if (gameModeRef.current === 'practice') {
+        const freshBoard = createBoard();
+        boardRef.current = freshBoard;
+        setBoard(freshBoard);
+        newPiece = spawnPiece(nextName);
+        onStateUpdate?.({ board: freshBoard, score: scoreRef.current, lines: totalLinesRef.current });
+      } else {
+        currentPieceRef.current = null;
+        setCurrentPiece(null);
+        finishGame('top-out');
+        return false;
+      }
+    }
+
+    currentPieceRef.current = newPiece;
+    setCurrentPiece(newPiece);
+    setNextPieces(pieceQueueRef.current.preview(5));
+    canHoldRef.current = resetHold;
+    setCanHold(resetHold);
+    return true;
+  }, [cancelLock, finishGame, onStateUpdate]);
+
   const lock = useCallback(() => {
+    if (isGameOverRef.current || isPausedRef.current) return;
+
     cancelLock();
     const piece = currentPieceRef.current;
     const currentBoard = boardRef.current;
     if (!piece) return;
 
-    // 피스를 보드에 고정
-    let newBoard = lockPiece(currentBoard, piece);
+    const lockedAboveTop = piece.shape.some((row, rowIndex) =>
+      row.some(cell => cell !== 0) && piece.y + rowIndex < 0
+    );
+    const tSpin = lastActionRef.current === 'rotate' && checkTSpin(currentBoard, piece);
+    const lockedBoard = lockPiece(currentBoard, piece);
+    const { board: newBoard, linesCleared } = clearLines(lockedBoard);
 
-    // T-Spin 체크
-    const tSpin = checkTSpin(currentBoard, piece);
+    const newCombo = linesCleared > 0 ? comboRef.current + 1 : 0;
+    const newTotal = totalLinesRef.current + linesCleared;
+    const newLevel = Math.floor(newTotal / LINES_PER_LEVEL) + 1;
+    const gainedScore = getLineClearScore(linesCleared, tSpin, levelRef.current, newCombo);
 
-    // 줄 제거
-    const { board: clearedBoard, linesCleared } = clearLines(newBoard);
-    newBoard = clearedBoard;
+    comboRef.current = newCombo;
+    totalLinesRef.current = newTotal;
+    levelRef.current = newLevel;
+    boardRef.current = newBoard;
+    setCombo(newCombo);
+    setTotalLines(newTotal);
+    setLevel(newLevel);
+    setBoard(newBoard);
+    addScore(gainedScore);
+    if (linesCleared > 0) onSound?.(tSpin ? 'tSpin' : 'clear');
 
-    // 콤보 처리
-    let newCombo = comboRef.current;
     if (linesCleared > 0) {
-      newCombo++;
-      setCombo(newCombo);
-      comboRef.current = newCombo;
-
-      // 점수 & 줄 업데이트
-      setTotalLines(prev => {
-        const newTotal = prev + linesCleared;
-        setLevel(Math.floor(newTotal / LINES_PER_LEVEL) + 1);
-
-        // 스프린트 모드: 40줄 달성 시 게임 종료 (승리)
-        if (gameModeRef.current === 'sprint' && newTotal >= 40) {
-          setIsGameOver(true);
-          setIsPlaying(false);
-          isGameOverRef.current = true;
-          onGameOver?.();
-        }
-
-        return newTotal;
+      onLineCleared?.({
+        linesCleared,
+        isTSpin: tSpin,
+        combo: newCombo,
+        score: scoreRef.current,
       });
-
-      // 서버에 알림
-      onLineCleared?.({ linesCleared, isTSpin: tSpin, combo: newCombo });
-    } else {
-      setCombo(0);
-      comboRef.current = 0;
     }
 
-    setBoard(newBoard);
-    boardRef.current = newBoard;
+    onStateUpdate?.({
+      board: newBoard,
+      score: scoreRef.current,
+      lines: newTotal,
+    });
 
-    // 상태 업데이트 전송 (상대방 미니보드용)
-    onStateUpdate?.({ board: newBoard });
+    if (lockedAboveTop) {
+      finishGame('top-out');
+      return;
+    }
 
-    // 다음 피스
+    if (gameModeRef.current === 'sprint' && newTotal >= 40) {
+      finishGame('sprint-complete');
+      return;
+    }
+
     spawnNext();
-  }, [spawnNext, onLineCleared, onStateUpdate]);
+  }, [addScore, cancelLock, finishGame, onLineCleared, onSound, onStateUpdate, spawnNext]);
 
-  // ---------- 락 딜레이 타이머 시작 ----------
   const startLockTimer = useCallback(() => {
-    cancelLock();
+    if (isPausedRef.current || isGameOverRef.current || lockTimerRef.current) return;
     lockTimerRef.current = setTimeout(() => {
+      lockTimerRef.current = null;
       lock();
     }, LOCK_DELAY);
-  }, [lock, cancelLock]);
+  }, [lock]);
 
-  // ---------- 이동 ----------
-  const movePiece = useCallback((dx, dy) => {
+  const movePiece = useCallback((dx, dy, { softDrop = false } = {}) => {
     const piece = currentPieceRef.current;
-    if (!piece || isGameOverRef.current) return false;
+    if (!piece || isGameOverRef.current || isPausedRef.current) return false;
 
     const newX = piece.x + dx;
     const newY = piece.y + dy;
 
     if (isValidPosition(boardRef.current, piece.shape, newX, newY)) {
       const movedPiece = { ...piece, x: newX, y: newY };
-      setCurrentPiece(movedPiece);
       currentPieceRef.current = movedPiece;
+      setCurrentPiece(movedPiece);
+      lastActionRef.current = 'move';
 
-      // 바닥 검사 (아래로 한 칸 더 갈 수 있는지)
+      if (softDrop && dy > 0) addScore(1);
+
       const onGround = !isValidPosition(boardRef.current, movedPiece.shape, newX, newY + 1);
-
-      if (onGround) {
-        // 이동 시 타이머 리셋
-        if (lockResetsRef.current < MAX_LOCK_RESETS && (dx !== 0 || dy !== 0)) {
-          lockResetsRef.current++;
-          startLockTimer();
-        } else if (!lockTimerRef.current) {
-          startLockTimer();
-        }
-      } else {
-        cancelLock(); // 허공으로 나옴
-      }
-
-      return true;
-    }
-
-    // 아래로 이동 불가 -> 바닥에 닿음
-    if (dy > 0) {
-      if (!lockTimerRef.current) {
-        startLockTimer();
-      }
-    }
-
-    return false;
-  }, [startLockTimer, cancelLock]);
-
-  // ---------- 회전 ----------
-  const rotate = useCallback((direction) => {
-    const piece = currentPieceRef.current;
-    if (!piece || isGameOverRef.current) return;
-
-    const rotated = rotatePiece(boardRef.current, piece, direction);
-    if (rotated) {
-      setCurrentPiece(rotated);
-      currentPieceRef.current = rotated;
-
-      const onGround = !isValidPosition(boardRef.current, rotated.shape, rotated.x, rotated.y + 1);
-
       if (onGround) {
         if (lockResetsRef.current < MAX_LOCK_RESETS) {
-          lockResetsRef.current++;
+          lockResetsRef.current += 1;
+          cancelLock();
+          startLockTimer();
+        } else {
           startLockTimer();
         }
       } else {
         cancelLock();
       }
+      return true;
     }
-  }, [startLockTimer, cancelLock]);
 
-  // ---------- 하드 드롭 ----------
+    if (dy > 0) startLockTimer();
+    return false;
+  }, [addScore, cancelLock, startLockTimer]);
+
+  const rotate = useCallback((direction) => {
+    const piece = currentPieceRef.current;
+    if (!piece || isGameOverRef.current || isPausedRef.current) return false;
+
+    const rotated = rotatePiece(boardRef.current, piece, direction);
+    if (!rotated) return false;
+
+    currentPieceRef.current = rotated;
+    setCurrentPiece(rotated);
+    lastActionRef.current = 'rotate';
+    onSound?.('rotate');
+
+    const onGround = !isValidPosition(boardRef.current, rotated.shape, rotated.x, rotated.y + 1);
+    if (onGround) {
+      if (lockResetsRef.current < MAX_LOCK_RESETS) {
+        lockResetsRef.current += 1;
+        cancelLock();
+      }
+      startLockTimer();
+    } else {
+      cancelLock();
+    }
+    return true;
+  }, [cancelLock, onSound, startLockTimer]);
+
   const hardDrop = useCallback(() => {
     const piece = currentPieceRef.current;
-    if (!piece || isGameOverRef.current) return;
+    if (!piece || isGameOverRef.current || isPausedRef.current) return;
 
     const ghostY = getGhostPosition(boardRef.current, piece);
     const droppedPiece = { ...piece, y: ghostY };
-
-    setCurrentPiece(droppedPiece);
     currentPieceRef.current = droppedPiece;
-
-    // 점수 추가 (드롭 거리 * 2)
-    setScore(prev => prev + (ghostY - piece.y) * 2);
-
+    setCurrentPiece(droppedPiece);
+    addScore(Math.max(0, ghostY - piece.y) * 2);
+    onSound?.('drop');
     cancelLock();
     lock();
-  }, [lock, cancelLock]);
+  }, [addScore, cancelLock, lock, onSound]);
 
-  // ---------- 홀드 ----------
   const hold = useCallback(() => {
     const piece = currentPieceRef.current;
-    if (!piece || !canHold || isGameOverRef.current) return;
+    if (!piece || !canHoldRef.current || isGameOverRef.current || isPausedRef.current) return;
 
+    cancelLock();
+    lockResetsRef.current = 0;
+    lastActionRef.current = null;
+    canHoldRef.current = false;
     setCanHold(false);
+    onSound?.('hold');
 
-    if (holdPiece) {
-      // 홀드에 있던 피스를 꺼내고, 현재 피스를 홀드에 넣음
-      const newCurrent = spawnPiece(holdPiece);
-      setHoldPiece(piece.name);
-      setCurrentPiece(newCurrent);
-      currentPieceRef.current = newCurrent;
-    } else {
-      // 홀드가 비어있으면 현재 피스를 넣고 다음 피스 스폰
-      setHoldPiece(piece.name);
-      spawnNext();
-    }
-  }, [canHold, holdPiece, spawnNext]);
+    const storedName = holdPieceRef.current;
+    holdPieceRef.current = piece.name;
+    setHoldPiece(piece.name);
 
-  // ---------- 쓰레기 줄 수신 ----------
-  const receiveGarbage = useCallback((garbageLines) => {
-    setBoard(prev => {
-      const newBoard = addGarbageLines(prev, garbageLines);
-      boardRef.current = newBoard;
-      return newBoard;
-    });
-  }, []);
-
-  // ---------- 일시정지 ----------
-  const pauseGame = useCallback(() => {
-    if (!isPlaying || isGameOver) return;
-    setIsPaused(true);
-    isPausedRef.current = true;
-  }, [isPlaying, isGameOver]);
-
-  const resumeGame = useCallback(() => {
-    setIsPaused(false);
-    isPausedRef.current = false;
-  }, []);
-
-  // ---------- 자동 낙하 ----------
-  useEffect(() => {
-    if (!isPlaying || isGameOver || isPaused) {
-      clearInterval(dropTimerRef.current);
+    if (!storedName) {
+      spawnNext({ resetHold: false });
       return;
     }
 
-    const speed = Math.max(
+    const swappedPiece = spawnPiece(storedName);
+    if (!isValidPosition(boardRef.current, swappedPiece.shape, swappedPiece.x, swappedPiece.y)) {
+      if (gameModeRef.current === 'practice') {
+        const freshBoard = createBoard();
+        boardRef.current = freshBoard;
+        setBoard(freshBoard);
+        onStateUpdate?.({ board: freshBoard, score: scoreRef.current, lines: totalLinesRef.current });
+      } else {
+        currentPieceRef.current = null;
+        setCurrentPiece(null);
+        finishGame('top-out');
+        return;
+      }
+    }
+
+    currentPieceRef.current = swappedPiece;
+    setCurrentPiece(swappedPiece);
+  }, [cancelLock, finishGame, onSound, onStateUpdate, spawnNext]);
+
+  const receiveGarbage = useCallback((garbageLines) => {
+    if (!Array.isArray(garbageLines) || garbageLines.length === 0 || isGameOverRef.current) return;
+
+    const newBoard = addGarbageLines(boardRef.current, garbageLines);
+    boardRef.current = newBoard;
+    setBoard(newBoard);
+    onSound?.('garbage');
+    onStateUpdate?.({ board: newBoard, score: scoreRef.current, lines: totalLinesRef.current });
+
+    const piece = currentPieceRef.current;
+    if (piece && !isValidPosition(newBoard, piece.shape, piece.x, piece.y)) {
+      finishGame('garbage-top-out');
+    }
+  }, [finishGame, onSound, onStateUpdate]);
+
+  const pauseGame = useCallback(() => {
+    if (!isPlayingRef.current || isGameOverRef.current || isPausedRef.current) return;
+    cancelLock();
+    setIsSoftDropping(false);
+    pausedAtRef.current = Date.now();
+    if (gameStartedAtRef.current) {
+      setElapsedTime(pausedAtRef.current - gameStartedAtRef.current - totalPausedTimeRef.current);
+    }
+    isPausedRef.current = true;
+    setIsPaused(true);
+  }, [cancelLock]);
+
+  const resumeGame = useCallback(() => {
+    if (!isPlayingRef.current || isGameOverRef.current || !isPausedRef.current) return;
+    if (pausedAtRef.current) {
+      totalPausedTimeRef.current += Date.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
+    isPausedRef.current = false;
+    setIsPaused(false);
+
+    const piece = currentPieceRef.current;
+    if (piece && !isValidPosition(boardRef.current, piece.shape, piece.x, piece.y + 1)) {
+      startLockTimer();
+    }
+  }, [startLockTimer]);
+
+  useEffect(() => {
+    if (!isPlaying || isGameOver || isPaused || !gameStartedAtRef.current) return undefined;
+    const updateElapsedTime = () => {
+      setElapsedTime(Date.now() - gameStartedAtRef.current - totalPausedTimeRef.current);
+    };
+    updateElapsedTime();
+    const timer = setInterval(updateElapsedTime, 100);
+    return () => clearInterval(timer);
+  }, [isGameOver, isPaused, isPlaying]);
+
+  useEffect(() => {
+    clearDropTimer();
+    if (!isPlaying || isGameOver || isPaused) return undefined;
+
+    const normalSpeed = Math.max(
       INITIAL_DROP_SPEED - (level - 1) * SPEED_DECREASE_PER_LEVEL,
       MIN_DROP_SPEED
     );
+    const speed = isSoftDropping
+      ? Math.max(20, Math.floor(normalSpeed / SOFT_DROP_MULTIPLIER))
+      : normalSpeed;
 
     dropTimerRef.current = setInterval(() => {
-      movePiece(0, 1);
+      movePiece(0, 1, { softDrop: isSoftDropping });
     }, speed);
 
-    return () => clearInterval(dropTimerRef.current);
-  }, [isPlaying, isGameOver, isPaused, level, movePiece]);
+    return clearDropTimer;
+  }, [clearDropTimer, isGameOver, isPaused, isPlaying, isSoftDropping, level, movePiece]);
 
-  // ---------- 키보드 입력 처리 ----------
   useEffect(() => {
-    if (!isPlaying || isGameOver || isPaused) return;
+    if (!isPlaying || isGameOver || isPaused) return undefined;
 
-    const handleKeyDown = (e) => {
-      // 채팅창 등 input/textarea에서 타이핑 중일 때는 테트리스 단축키 무시
-      if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        return;
-      }
+    const isTypingTarget = () => {
+      const tagName = document.activeElement?.tagName;
+      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName);
+    };
 
-      switch (e.key) {
+    const handleKeyDown = (event) => {
+      if (isTypingTarget()) return;
+
+      switch (event.key) {
         case keys.MOVE_LEFT:
-          e.preventDefault();
+          event.preventDefault();
           movePiece(-1, 0);
           break;
         case keys.MOVE_RIGHT:
-          e.preventDefault();
+          event.preventDefault();
           movePiece(1, 0);
           break;
         case keys.SOFT_DROP:
-          e.preventDefault();
-          movePiece(0, 1);
+          event.preventDefault();
+          if (!event.repeat) {
+            movePiece(0, 1, { softDrop: true });
+            setIsSoftDropping(true);
+          }
           break;
         case keys.HARD_DROP:
-          e.preventDefault();
-          hardDrop();
+          event.preventDefault();
+          if (!event.repeat) hardDrop();
           break;
         case keys.ROTATE_CW:
-          e.preventDefault();
-          rotate(1);
+          event.preventDefault();
+          if (!event.repeat) rotate(1);
           break;
         case keys.ROTATE_CCW:
-          e.preventDefault();
-          rotate(-1);
+          event.preventDefault();
+          if (!event.repeat) rotate(-1);
           break;
         case keys.HOLD:
-          e.preventDefault();
-          hold();
+          event.preventDefault();
+          if (!event.repeat) hold();
           break;
         case keys.RESET:
-          e.preventDefault();
-          startGame();
+          if (canReset) {
+            event.preventDefault();
+            if (!event.repeat) startGame({ mode: gameModeRef.current });
+          }
           break;
         default:
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isGameOver, movePiece, hardDrop, rotate, hold, startGame, keys]);
+    const handleKeyUp = (event) => {
+      if (event.key === keys.SOFT_DROP) setIsSoftDropping(false);
+    };
 
-  // ---------- 고스트 피스 위치 ----------
-  const ghostY = currentPiece
-    ? getGhostPosition(board, currentPiece)
-    : null;
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [canReset, hardDrop, hold, isGameOver, isPaused, isPlaying, keys, movePiece, rotate, startGame]);
+
+  useEffect(() => () => {
+    cancelLock();
+    clearDropTimer();
+  }, [cancelLock, clearDropTimer]);
+
+  const ghostY = currentPiece ? getGhostPosition(board, currentPiece) : null;
 
   return {
     board,
@@ -421,10 +553,12 @@ export function useTetris({ onLineCleared, onGameOver, onStateUpdate, keys = KEY
     isGameOver,
     isPlaying,
     combo,
+    elapsedTime,
     ghostY,
     isPaused,
     pauseGame,
     resumeGame,
+    stopGame,
     startGame,
     movePiece,
     rotate,

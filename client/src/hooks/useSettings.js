@@ -40,7 +40,13 @@ export function useSettings() {
   }, [fontTheme]);
 
   const updateKey = (action, newKey) => {
-    setKeys(prev => ({ ...prev, [action]: newKey }));
+    setKeys(previous => {
+      const conflictingAction = Object.keys(previous)
+        .find(key => key !== action && previous[key] === newKey);
+      const updated = { ...previous, [action]: newKey };
+      if (conflictingAction) updated[conflictingAction] = previous[action];
+      return updated;
+    });
   };
 
   return { keys, updateKey, volume, setVolume, fontTheme, setFontTheme };

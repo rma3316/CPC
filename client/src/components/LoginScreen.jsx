@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function LoginScreen({ onSetNickname }) {
   const [nicknameInput, setNicknameInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const typingTimerRef = useRef(null);
+  const transitionTimerRef = useRef(null);
 
-  useEffect(() => {
-    if (nicknameInput) {
-      setIsTyping(true);
-      const timer = setTimeout(() => setIsTyping(false), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [nicknameInput]);
+  useEffect(() => () => {
+    clearTimeout(typingTimerRef.current);
+    clearTimeout(transitionTimerRef.current);
+  }, []);
+
+  const handleNicknameChange = (event) => {
+    setNicknameInput(event.target.value);
+    setIsTyping(true);
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => setIsTyping(false), 100);
+  };
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -44,9 +50,9 @@ export default function LoginScreen({ onSetNickname }) {
     e.preventDefault();
     if (nicknameInput.trim() && !isFadingOut) {
       setIsFadingOut(true);
-      setTimeout(() => {
+      transitionTimerRef.current = setTimeout(() => {
         onSetNickname(nicknameInput.trim());
-      }, 300); // fade-out 애니메이션 시간(0.3초) 대기 후 화면 전환
+      }, 300);
     }
   };
 
@@ -100,7 +106,7 @@ export default function LoginScreen({ onSetNickname }) {
                   spellCheck="false" 
                   type="text"
                   value={nicknameInput}
-                  onChange={(e) => setNicknameInput(e.target.value)}
+                  onChange={handleNicknameChange}
                   maxLength={16}
                   autoFocus
                 />

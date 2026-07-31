@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 const KEY_LABELS = {
   MOVE_LEFT: '왼쪽 이동',
@@ -15,12 +15,11 @@ export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume
   const [editingAction, setEditingAction] = useState(null);
   const [showKeySettings, setShowKeySettings] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setEditingAction(null);
-      setShowKeySettings(false);
-    }
-  }, [isOpen]);
+  const handleClose = () => {
+    setEditingAction(null);
+    setShowKeySettings(false);
+    onClose();
+  };
 
   useEffect(() => {
     if (!editingAction) return;
@@ -39,9 +38,9 @@ export default function SettingsModal({ isOpen, onClose, keys, updateKey, volume
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-sky-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300" onClick={onClose}>
+    <div className="fixed inset-0 bg-sky-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300" onClick={handleClose}>
       <div className="glass-panel w-full max-w-md p-8 flex flex-col shadow-2xl relative animate-scale-in" onClick={(e) => e.stopPropagation()}>
-        <button className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-sky-500 hover:text-sky-700 hover:bg-sky-100/50 transition-colors" onClick={onClose}>
+        <button className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-sky-500 hover:text-sky-700 hover:bg-sky-100/50 transition-colors" onClick={handleClose}>
           <span className="material-symbols-outlined text-xl">close</span>
         </button>
         

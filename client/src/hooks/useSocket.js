@@ -1,160 +1,141 @@
 // ============================================================
 //  useSocket.js - Socket.io 연결 관리 React Hook
-//  담당: 개발자 B (네트워크 담당)
 // ============================================================
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { SERVER_URL } from '../game/constants';
 
-/**
- * Socket.io 연결을 관리하는 커스텀 훅
- *
- * @returns {{
- *   socket: import('socket.io-client').Socket | null,
- *   isConnected: boolean,
- *   rooms: Array,
- *   currentRoom: object | null,
- *   nickname: string,
- *   setNickname: Function,
- *   createRoom: Function,
- *   joinRoom: Function,
- *   toggleReady: Function,
- *   startGame: Function,
- *   sendPlayerState: Function,
- *   sendLineCleared: Function,
- *   sendGameOver: Function,
- *   sendChatMessage: Function,
- *   transferHost: Function,
- *   kickPlayer: Function,
- *   leaveRoom: Function,
- *   onKicked: Function,
- * }}
- */
+const ACK_TIMEOUT = 5000;
+
+function emitWithAck(socket, event, payload) {
+  if (!socket.connected) {
+    return Promise.resolve({ success: false, error: 'NOT_CONNECTED' });
+  }
+
+  return new Promise((resolve) => {
+    socket.timeout(ACK_TIMEOUT).emit(event, payload, (error, result) => {
+      if (error) {
+        resolve({ success: false, error: 'REQUEST_TIMEOUT' });
+        return;
+      }
+      resolve(result || { success: false, error: 'EMPTY_RESPONSE' });
+    });
+  });
+}
+
+/** Socket.io 연결과 로비/게임 이벤트 전송 API를 관리합니다. */
 export function useSocket({ onKickedCallback } = {}) {
-  const socketRef = useRef(null);
+  const [socket] = useState(() => io(SERVER_URL, {
+    autoConnect: false,
+    reconnection: true,
+    reconnectionDelay: 1000,
+  }));
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [currentRoom, setCurrentRoom] = useState(null);
   const [nickname, setNickname] = useState('');
 
-  // --- 소켓 연결 ---
   useEffect(() => {
-    const socket = io(SERVER_URL, {
-      autoConnect: true,
-      reconnection: true,
-      reconnectionDelay: 1000,
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('[Socket] 연결됨:', socket.id);
+    const handleConnect = () => {
       setIsConnected(true);
-      // 최초 연결 시 방 목록 요청
       socket.emit('get_rooms', (roomList) => {
-        setRooms(roomList);
+        setRooms(Array.isArray(roomList) ? roomList : []);
       });
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[Socket] 연결 해제');
-      setIsConnected(false);
-    });
-
-    // 방 목록 업데이트
-    socket.on('room_list_updated', (roomList) => {
-      setRooms(roomList);
-    });
-
-    // 현재 방 상태 업데이트
-    socket.on('room_updated', (room) => {
-      setCurrentRoom(room);
-    });
-
-    // 추방당함
-    socket.on('kicked', () => {
+    };
+    const handleDisconnect = () => setIsConnected(false);
+    const handleRoomList = (roomList) => setRooms(Array.isArray(roomList) ? roomList : []);
+    const handleRoomUpdate = (room) => setCurrentRoom(room || null);
+    const handleKicked = () => {
       setCurrentRoom(null);
-      if (onKickedCallback) onKickedCallback();
-    });
+      onKickedCallback?.();
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('room_list_updated', handleRoomList);
+    socket.on('room_updated', handleRoomUpdate);
+    socket.on('kicked', handleKicked);
+    socket.connect();
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('room_list_updated', handleRoomList);
+      socket.off('room_updated', handleRoomUpdate);
+      socket.off('kicked', handleKicked);
       socket.disconnect();
     };
-  }, []);
+  }, [onKickedCallback, socket]);
 
-  // --- 방 생성 ---
-  const createRoom = useCallback((roomName, options = {}) => {
-    return new Promise((resolve) => {
-      socketRef.current?.emit('create_room', { roomName, nickname, options }, (result) => {
-        if (result.success) setCurrentRoom(result.room);
-        resolve(result);
-      });
-    });
-  }, [nickname]);
+  const createRoom = useCallback(async (roomName, options = {}) => {
+    const result = await emitWithAck(socket, 'create_room', { roomName, nickname, options });
+    if (result.success) setCurrentRoom(result.room);
+    return result;
+  }, [nickname, socket]);
 
-  // --- 방 입장 ---
-  const joinRoom = useCallback((roomId) => {
-    return new Promise((resolve) => {
-      socketRef.current?.emit('join_room', { roomId, nickname }, (result) => {
-        if (result.success) setCurrentRoom(result.room);
-        resolve(result);
-      });
-    });
-  }, [nickname]);
+  const joinRoom = useCallback(async (roomId) => {
+    const result = await emitWithAck(socket, 'join_room', { roomId, nickname });
+    if (result.success) setCurrentRoom(result.room);
+    return result;
+  }, [nickname, socket]);
 
-  // --- 준비 토글 ---
   const toggleReady = useCallback(() => {
-    socketRef.current?.emit('toggle_ready');
-  }, []);
+    if (socket.connected) socket.emit('toggle_ready');
+  }, [socket]);
 
-  // --- 게임 시작 ---
   const startGame = useCallback(() => {
-    socketRef.current?.emit('start_game');
-  }, []);
+    if (socket.connected) socket.emit('start_game');
+  }, [socket]);
 
-  // --- 플레이어 보드 상태 전송 ---
   const sendPlayerState = useCallback((state) => {
-    socketRef.current?.emit('player_state', state);
-  }, []);
+    if (socket.connected) socket.emit('player_state', state);
+  }, [socket]);
 
-  // --- 줄 제거 알림 ---
   const sendLineCleared = useCallback((data) => {
-    socketRef.current?.emit('line_clear', data);
-  }, []);
+    if (socket.connected) socket.emit('line_clear', data);
+  }, [socket]);
 
-  // --- 게임 오버 알림 ---
-  const sendGameOver = useCallback(() => {
-    socketRef.current?.emit('game_over');
-  }, []);
+  const sendGameOver = useCallback((data = {}) => {
+    if (socket.connected) socket.emit('game_over', data);
+  }, [socket]);
 
-  // --- 채팅 메시지 전송 ---
   const sendChatMessage = useCallback((message) => {
-    socketRef.current?.emit('chat_message', { message, nickname });
-  }, [nickname]);
+    if (socket.connected) socket.emit('chat_message', { message });
+  }, [socket]);
 
-  // --- 방장 권한 인계 ---
   const transferHost = useCallback((targetId) => {
-    socketRef.current?.emit('transfer_host', { targetId });
-  }, []);
+    if (socket.connected) socket.emit('transfer_host', { targetId });
+  }, [socket]);
 
-  // --- 플레이어 추방 ---
   const kickPlayer = useCallback((targetId) => {
-    socketRef.current?.emit('kick_player', { targetId });
-  }, []);
+    if (socket.connected) socket.emit('kick_player', { targetId });
+  }, [socket]);
 
-  // --- 방 나가기 ---
   const leaveRoom = useCallback(() => {
+    if (!socket.connected) {
+      setCurrentRoom(null);
+      return Promise.resolve({ success: false, error: 'NOT_CONNECTED' });
+    }
+
     return new Promise((resolve) => {
-      socketRef.current?.emit('leave_room', () => {
+      socket.timeout(ACK_TIMEOUT).emit('leave_room', (error, result) => {
+        if (error) {
+          // ack 유실 시 연결을 재수립해 서버 disconnect 정리를 보장합니다.
+          socket.disconnect();
+          socket.connect();
+          setCurrentRoom(null);
+          resolve({ success: true, recovered: true });
+          return;
+        }
         setCurrentRoom(null);
-        resolve();
+        resolve(result || { success: true });
       });
     });
-  }, []);
+  }, [socket]);
 
   return {
-    socket: socketRef.current,
+    socket,
     isConnected,
     rooms,
     currentRoom,

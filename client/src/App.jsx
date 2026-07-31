@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useTetris } from './hooks/useTetris';
 import { useSettings } from './hooks/useSettings';
+import { useGameSounds } from './hooks/useGameSounds';
 import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
 import GameBoard from './components/GameBoard';
@@ -17,6 +18,22 @@ import LoginScreen from './components/LoginScreen';
 import ModeSelection from './components/ModeSelection';
 import SettingsModal from './components/SettingsModal';
 import './App.css';
+
+const SOCKET_ERROR_MESSAGES = {
+  NOT_CONNECTED: '서버에 연결되어 있지 않습니다.',
+  REQUEST_TIMEOUT: '서버 응답 시간이 초과되었습니다.',
+  ROOM_NOT_FOUND: '방을 찾을 수 없습니다.',
+  ROOM_FULL: '방이 가득 찼습니다.',
+  GAME_ALREADY_STARTED: '이미 게임이 시작된 방입니다.',
+  ALREADY_IN_ROOM: '이미 다른 방에 입장해 있습니다.',
+  INVALID_INPUT: '입력값을 확인해 주세요.',
+  INVALID_NICKNAME: '닉네임을 확인해 주세요.',
+};
+
+function showSocketError(result) {
+  const message = SOCKET_ERROR_MESSAGES[result?.error] || '요청을 처리하지 못했습니다.';
+  window.alert(message);
+}
 
 /**
  * 앱 상태 흐름:
@@ -30,6 +47,7 @@ export default function App() {
   const [opponents, setOpponents] = useState({});
   const [allReady, setAllReady] = useState(false);
   const [gameResult, setGameResult] = useState(null);
+  const [attackNotice, setAttackNotice] = useState(null);
 
   const handleKicked = useCallback(() => {
     alert("방장에 의해 추방되었습니다.");
@@ -58,6 +76,27 @@ export default function App() {
   } = useSocket({ onKickedCallback: handleKicked });
 
   const { keys, updateKey, volume, setVolume, fontTheme, setFontTheme } = useSettings();
+  const playSound = useGameSounds(volume);
+
+  const handleLineCleared = useCallback((data) => {
+    if (playType === 'multi' && gameMode !== 'practice') {
+      sendLineCleared(data);
+    }
+  }, [gameMode, playType, sendLineCleared]);
+
+  const handleTetrisGameOver = useCallback(({ reason } = {}) => {
+    if (playType === 'multi') {
+      sendGameOver({ reason });
+      return;
+    }
+
+    setGameResult({ nickname: '나', reason });
+    setScreen('result');
+  }, [playType, sendGameOver]);
+
+  const handleStateUpdate = useCallback((state) => {
+    if (playType === 'multi') sendPlayerState(state);
+  }, [playType, sendPlayerState]);
 
   // --- 테트리스 게임 훅 ---
   const {
@@ -69,110 +108,102 @@ export default function App() {
     holdPiece,
     nextPieces,
     isGameOver,
-    isPlaying,
     combo,
+    elapsedTime,
     ghostY,
     startGame: tetrisStartGame,
     receiveGarbage,
-    // [A 협업] A 담당자가 구현해야 할 인터페이스
     isPaused,
     pauseGame,
     resumeGame,
+    stopGame,
   } = useTetris({
-    onLineCleared: (lines) => {
-      // 멀티플레이 중이고 프랙티스가 아닐 때만 가비지 라인 전송
-      if (playType === 'multi' && gameMode !== 'practice') {
-        sendLineCleared(lines);
-      }
-    },
-    onGameOver: () => {
-      if (playType === 'multi') {
-        sendGameOver();
-      } else {
-        // 싱글플레이는 직접 결과창으로
-        setGameResult({ nickname: '나' }); // 패배지만 결과창을 띄우기 위해
-        setScreen('result');
-      }
-    },
-    onStateUpdate: (state) => {
-      if (playType === 'multi') {
-        sendPlayerState(state);
-      }
-    },
+    onLineCleared: handleLineCleared,
+    onGameOver: handleTetrisGameOver,
+    onStateUpdate: handleStateUpdate,
+    onSound: playSound,
     keys,
+    canReset: playType === 'single',
   });
 
   // --- 소켓 이벤트 리스너 ---
   useEffect(() => {
-    if (!socket) return;
-
     const handlers = {
-      chat_message: (msg) => {
-        setChatMessages(prev => [...prev.slice(-100), msg]);
+      chat_message: (message) => {
+        setChatMessages(previous => [...previous.slice(-99), message]);
       },
-
       all_ready: () => setAllReady(true),
-
       room_updated: (room) => {
-        // allReady 재계산 (방장을 제외한 나머지 플레이어가 모두 준비 상태인지 확인)
-        if (room.players.length >= 2) {
-          const othersReady = room.players.filter(p => p.id !== room.hostId).every(p => p.ready);
-          setAllReady(othersReady);
-        } else {
-          setAllReady(false);
-        }
+        if (room?.mode) setGameMode(room.mode);
+        const players = room?.players || [];
+        const othersReady = players
+          .filter(player => player.id !== room?.hostId)
+          .every(player => player.ready);
+        setAllReady(players.length > 0 && othersReady);
       },
-
-      game_started: () => {
+      game_started: (room) => {
+        const roomMode = room?.mode || gameMode;
+        setGameMode(roomMode);
         setScreen('playing');
         setChatMessages([]);
         setOpponents({});
-        // 모드를 tetrisStartGame에 전달하여 내부에서 목표(40줄 등)를 설정하게 함
-        tetrisStartGame({ mode: gameMode });
+        setGameResult(null);
+        tetrisStartGame({ mode: roomMode });
       },
-
-      opponent_state: ({ playerId, board: opBoard }) => {
-        setOpponents(prev => ({
-          ...prev,
-          [playerId]: { ...(prev[playerId] || {}), board: opBoard },
+      opponent_state: ({ playerId, board: opponentBoard, score: opponentScore, lines }) => {
+        setOpponents(previous => ({
+          ...previous,
+          [playerId]: {
+            ...(previous[playerId] || {}),
+            board: opponentBoard,
+            score: opponentScore,
+            lines,
+          },
         }));
       },
-
-      receive_garbage: ({ lines }) => {
-        receiveGarbage(lines);
-      },
-
+      receive_garbage: ({ lines }) => receiveGarbage(lines),
       player_eliminated: ({ playerId }) => {
-        setOpponents(prev => ({
-          ...prev,
-          [playerId]: { ...(prev[playerId] || {}), alive: false },
+        setOpponents(previous => ({
+          ...previous,
+          [playerId]: { ...(previous[playerId] || {}), alive: false },
         }));
       },
-
-      game_finished: ({ winner }) => {
-        setGameResult(winner);
+      attack_effect: ({ attackerId, targets, lineCount }) => {
+        if (attackerId === socket.id) {
+          setAttackNotice({ type: 'sent', text: `${lineCount}줄 공격!` });
+        } else if (targets?.includes(socket.id)) {
+          setAttackNotice({ type: 'received', text: `${lineCount}줄 공격 받음!` });
+        }
+      },
+      game_finished: ({ winner, reason }) => {
+        stopGame();
+        setGameResult(winner ? { ...winner, reason } : { reason });
         setScreen('result');
       },
     };
 
-    for (const [event, handler] of Object.entries(handlers)) {
-      socket.on(event, handler);
-    }
-
+    for (const [event, handler] of Object.entries(handlers)) socket.on(event, handler);
     return () => {
-      for (const event of Object.keys(handlers)) {
-        socket.off(event);
-      }
+      for (const [event, handler] of Object.entries(handlers)) socket.off(event, handler);
     };
-  }, [socket, tetrisStartGame, receiveGarbage, gameMode]);
+  }, [gameMode, receiveGarbage, socket, stopGame, tetrisStartGame]);
+
+  useEffect(() => {
+    if (!attackNotice) return undefined;
+    const timer = setTimeout(() => setAttackNotice(null), 1200);
+    return () => clearTimeout(timer);
+  }, [attackNotice]);
 
   // --- 핸들러 ---
   const handleCreateRoom = useCallback(async (roomName, mode) => {
-    // 생성 시 선택한 mode를 전달 (없으면 기본 gameMode)
-    const result = await createRoom(roomName, { mode: mode || gameMode });
+    const selectedMode = mode || gameMode;
+    const result = await createRoom(roomName, { mode: selectedMode });
     if (result.success) {
+      setGameMode(result.room?.mode || selectedMode);
       setScreen('waiting');
       setChatMessages([]);
+    } else {
+      showSocketError(result);
     }
   }, [createRoom, gameMode]);
 
@@ -183,6 +214,8 @@ export default function App() {
       setGameMode(result.room.mode || 'vs');
       setScreen('waiting');
       setChatMessages([]);
+    } else {
+      showSocketError(result);
     }
   }, [joinRoom]);
 
@@ -226,6 +259,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleGoHome = useCallback(async () => {
+    if (screen === 'playing') stopGame();
     if (playType === 'multi' && (screen === 'waiting' || screen === 'playing')) {
       await leaveRoom();
     }
@@ -233,7 +267,7 @@ export default function App() {
       setScreen('mode');
     }
     setGameResult(null);
-  }, [playType, screen, leaveRoom]);
+  }, [playType, screen, leaveRoom, stopGame]);
 
   // --- 화면 렌더링 ---
   const renderScreen = () => {
@@ -289,8 +323,10 @@ export default function App() {
           <div className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-300/40 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
 
           <div className="glass-panel max-w-md w-full p-10 flex flex-col items-center justify-center relative z-10 animate-scale-in">
-            <h1 className="font-headline text-5xl font-bold text-sky-950 mb-8 drop-shadow-md">GAME OVER</h1>
-            {gameResult && playType === 'multi' && (
+            <h1 className="font-headline text-5xl font-bold text-sky-950 mb-8 drop-shadow-md">
+              {gameResult?.reason === 'sprint-complete' ? 'SPRINT COMPLETE' : 'GAME OVER'}
+            </h1>
+            {gameResult?.nickname && playType === 'multi' && (
               <div className="flex flex-col items-center bg-white/40 border border-sky-100 rounded-2xl p-6 w-full mb-8 shadow-sm">
                 <span className="text-sm font-bold text-sky-600 mb-1">🏆 승자</span>
                 <span className="font-headline text-2xl font-bold text-sky-900">{gameResult.nickname}</span>
@@ -309,6 +345,12 @@ export default function App() {
                 <span className="font-semibold text-sky-800">LEVEL</span>
                 <span className="font-headline text-xl font-bold text-sky-700">{level}</span>
               </div>
+              {gameMode === 'sprint' && (
+                <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
+                  <span className="font-semibold text-sky-800">TIME</span>
+                  <span className="font-headline text-xl font-bold text-sky-700">{(elapsedTime / 1000).toFixed(1)}s</span>
+                </div>
+              )}
             </div>
             <div className="flex w-full gap-4">
               <button className="glass-button flex-1 h-14 rounded-xl font-bold text-lg" onClick={handleBackToWaiting}>
@@ -344,6 +386,16 @@ export default function App() {
           <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-sky-200/40 rounded-full blur-[120px]"></div>
         </div>
 
+        {attackNotice && (
+          <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl font-headline font-bold text-lg shadow-xl animate-scale-in ${
+            attackNotice.type === 'sent'
+              ? 'bg-emerald-500 text-white'
+              : 'bg-rose-500 text-white'
+          }`}>
+            {attackNotice.text}
+          </div>
+        )}
+
         <div className="w-full max-w-[1400px] h-screen max-h-[900px] p-6 flex flex-col lg:flex-row gap-6 relative z-10 justify-center">
           {/* 왼쪽: 점수 패널 */}
           <div className="w-full lg:w-64 flex flex-col h-full shrink-0">
@@ -352,6 +404,7 @@ export default function App() {
               level={level}
               totalLines={totalLines}
               combo={combo}
+              elapsedTime={elapsedTime}
               holdPiece={holdPiece}
               nextPieces={nextPieces}
             />
@@ -364,6 +417,7 @@ export default function App() {
               currentPiece={currentPiece} 
               ghostY={ghostY} 
               isPaused={isPaused}
+              canPause={playType === 'single' || gameMode === 'practice'}
               onPauseGame={pauseGame}
               onResumeGame={resumeGame}
               onOpenSettings={() => setIsSettingsOpen(true)}
@@ -389,6 +443,8 @@ export default function App() {
                     board={op.board}
                     nickname={op.nickname}
                     alive={op.alive}
+                    score={opponents[op.id]?.score ?? op.score ?? 0}
+                    lines={opponents[op.id]?.lines ?? op.lines ?? 0}
                   />
                 ))}
               </div>

@@ -1,5 +1,11 @@
 import Chat from './Chat';
 
+const MODE_LABELS = {
+  vs: 'VS 대전',
+  sprint: '40줄 스피드전',
+  practice: '멀티 프랙티스',
+};
+
 /**
  * @param {object} props
  * @param {object} props.room - 현재 방 정보
@@ -41,6 +47,9 @@ export default function WaitingRoom({
             </h1>
             <h2 className="font-body text-lg text-sky-800 font-semibold mt-1">
               방: <span className="text-sky-600">{room?.name || 'Room'}</span>
+              <span className="ml-2 inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 align-middle">
+                {MODE_LABELS[room?.mode] || room?.mode || 'VS 대전'}
+              </span>
             </h2>
           </div>
           <button 

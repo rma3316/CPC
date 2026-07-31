@@ -8,9 +8,10 @@ import { BOARD_WIDTH, BOARD_HEIGHT, MINI_CELL_SIZE, PIECE_COLORS } from '../game
  * @param {number[][]} props.board - 상대 보드 상태
  * @param {string} props.nickname - 상대 닉네임
  * @param {boolean} props.alive - 생존 여부
- * @param {boolean} [props.isEliminated] - 탈락 여부
+ * @param {number} props.score - 상대 점수
+ * @param {number} props.lines - 상대가 제거한 줄 수
  */
-export default function MiniBoard({ board, nickname, alive, isEliminated }) {
+export default function MiniBoard({ board, nickname, alive, isEliminated, score = 0, lines = 0 }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -67,6 +68,9 @@ export default function MiniBoard({ board, nickname, alive, isEliminated }) {
       <canvas ref={canvasRef} className="block rounded-md overflow-hidden bg-transparent border border-sky-100/50" />
       <span className="font-headline font-bold text-sm text-sky-900 mt-2 truncate w-full text-center px-1">
         {nickname || '???'}
+      </span>
+      <span className="font-headline text-[10px] text-sky-700 tabular-nums">
+        {score.toLocaleString()} P · {lines} L
       </span>
     </div>
   );

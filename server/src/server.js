@@ -1,13 +1,11 @@
 // ============================================================
 //  server.js - Express + Socket.io 메인 서버
-//  담당: 개발자 B (네트워크 & 서버 담당)
 // ============================================================
 
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-
 import {
   createRoom,
   joinRoom,
@@ -15,7 +13,9 @@ import {
   toggleReady,
   isAllReady,
   startGame,
+  updatePlayerStats,
   playerGameOver,
+  finishGame,
   resetRoom,
   getRoomList,
   getRoom,
@@ -23,174 +23,249 @@ import {
   transferHost,
   kickPlayer,
 } from './roomManager.js';
-
 import {
   calculateAttack,
   generateGarbageLines,
   determineTargets,
 } from './gameLogic.js';
 
-// ---------- 서버 초기화 ----------
+const PORT = Number(process.env.PORT) || 3001;
+const VALID_MODES = new Set(['vs', 'sprint', 'practice']);
+const configuredOrigins = process.env.CLIENT_ORIGINS
+  ?.split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const corsOrigin = configuredOrigins?.length ? configuredOrigins : true;
+
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: corsOrigin }));
+app.use(express.json({ limit: '16kb' }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: '*', // 개발 중에는 모든 origin 허용. 배포 시 제한 필요.
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 100_000,
 });
 
-const PORT = process.env.PORT || 3001;
+function cleanText(value, maxLength) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/[\u0000-\u001F\u007F]/g, '').slice(0, maxLength);
+}
 
-// ---------- REST API (간단한 상태 확인용) ----------
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+function isValidBoard(board) {
+  return Array.isArray(board)
+    && board.length === 20
+    && board.every(row => Array.isArray(row)
+      && row.length === 10
+      && row.every(cell => Number.isInteger(cell) && cell >= 0 && cell <= 8));
+}
+
+function isAlivePlayer(room, socketId) {
+  return room?.status === 'playing'
+    && room.players.some(player => player.id === socketId && player.alive);
+}
+
+function emitRoomLists() {
+  io.emit('room_list_updated', getRoomList());
+}
+
+function scheduleRoomReset(roomId) {
+  setTimeout(() => {
+    const room = resetRoom(roomId);
+    if (!room) return;
+    io.to(roomId).emit('room_updated', room);
+    emitRoomLists();
+  }, 5000);
+}
+
+function emitGameFinished(roomId, result) {
+  io.to(roomId).emit('game_finished', {
+    winner: result.winner,
+    room: result.room,
+    reason: result.reason,
+  });
+  scheduleRoomReset(roomId);
+}
+
+function handleDeparture(socket) {
+  const roomId = findRoomBySocketId(socket.id);
+  if (!roomId) return;
+
+  const roomBefore = getRoom(roomId);
+  const gameResult = isAlivePlayer(roomBefore, socket.id) && roomBefore.mode !== 'practice'
+    ? playerGameOver(roomId, socket.id)
+    : null;
+  const result = leaveRoom(roomId, socket.id);
+  socket.leave(roomId);
+
+  if (!result.deleted && result.room) {
+    io.to(roomId).emit('room_updated', result.room);
+    if (gameResult?.finished) {
+      emitGameFinished(roomId, { ...gameResult, room: result.room });
+    }
+  }
+  emitRoomLists();
+}
+
+app.get('/api/health', (request, response) => {
+  response.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/api/rooms', (req, res) => {
-  res.json(getRoomList());
+app.get('/api/rooms', (request, response) => {
+  response.json(getRoomList());
 });
 
-// ---------- Socket.io 이벤트 처리 ----------
 io.on('connection', (socket) => {
   console.log(`[연결] ${socket.id}`);
 
-  // --- 로비: 방 목록 요청 ---
   socket.on('get_rooms', (callback) => {
-    callback(getRoomList());
+    if (typeof callback === 'function') callback(getRoomList());
   });
 
-  // --- 방 생성 ---
-  socket.on('create_room', ({ roomName, nickname, options }, callback) => {
-    const room = createRoom(roomName, options);
+  socket.on('create_room', (payload = {}, callback) => {
+    const acknowledge = typeof callback === 'function' ? callback : () => {};
+    if (findRoomBySocketId(socket.id)) {
+      acknowledge({ success: false, error: 'ALREADY_IN_ROOM' });
+      return;
+    }
+
+    const nickname = cleanText(payload.nickname, 16);
+    const roomName = cleanText(payload.roomName, 40);
+    const mode = VALID_MODES.has(payload.options?.mode) ? payload.options.mode : 'vs';
+    if (!nickname) {
+      acknowledge({ success: false, error: 'INVALID_NICKNAME' });
+      return;
+    }
+
+    const room = createRoom(roomName, { mode });
     const result = joinRoom(room.id, socket.id, nickname);
-    if (result.success) {
-      socket.join(room.id);
-      io.emit('room_list_updated', getRoomList());
-      callback({ success: true, room: result.room });
-    } else {
-      callback({ success: false, error: result.error });
+    if (!result.success) {
+      acknowledge(result);
+      return;
     }
+
+    socket.join(room.id);
+    emitRoomLists();
+    acknowledge({ success: true, room: result.room });
   });
 
-  // --- 방 입장 ---
-  socket.on('join_room', ({ roomId, nickname }, callback) => {
+  socket.on('join_room', (payload = {}, callback) => {
+    const acknowledge = typeof callback === 'function' ? callback : () => {};
+    if (findRoomBySocketId(socket.id)) {
+      acknowledge({ success: false, error: 'ALREADY_IN_ROOM' });
+      return;
+    }
+
+    const roomId = cleanText(payload.roomId, 64);
+    const nickname = cleanText(payload.nickname, 16);
+    if (!roomId || !nickname) {
+      acknowledge({ success: false, error: 'INVALID_INPUT' });
+      return;
+    }
+
     const result = joinRoom(roomId, socket.id, nickname);
-    if (result.success) {
-      socket.join(roomId);
-      io.to(roomId).emit('room_updated', result.room);
-      io.emit('room_list_updated', getRoomList());
-      callback({ success: true, room: result.room });
-    } else {
-      callback({ success: false, error: result.error });
+    if (!result.success) {
+      acknowledge(result);
+      return;
     }
+
+    socket.join(roomId);
+    io.to(roomId).emit('room_updated', result.room);
+    emitRoomLists();
+    acknowledge({ success: true, room: result.room });
   });
 
-  // --- 준비 토글 ---
   socket.on('toggle_ready', () => {
     const roomId = findRoomBySocketId(socket.id);
     if (!roomId) return;
 
     const room = toggleReady(roomId, socket.id);
-    if (room) {
-      io.to(roomId).emit('room_updated', room);
-
-      // 모든 플레이어가 준비 완료되면 게임 시작 가능 알림
-      if (isAllReady(roomId)) {
-        io.to(roomId).emit('all_ready');
-      }
-    }
+    if (!room) return;
+    io.to(roomId).emit('room_updated', room);
+    if (isAllReady(roomId)) io.to(roomId).emit('all_ready');
   });
 
-  // --- 게임 시작 ---
   socket.on('start_game', () => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
-    if (!isAllReady(roomId)) return;
+    const currentRoom = roomId ? getRoom(roomId) : null;
+    if (!currentRoom || currentRoom.hostId !== socket.id || !isAllReady(roomId)) return;
 
     const room = startGame(roomId);
-    if (room) {
-      io.to(roomId).emit('game_started', room);
-      io.emit('room_list_updated', getRoomList());
-    }
+    if (!room) return;
+    io.to(roomId).emit('game_started', room);
+    emitRoomLists();
   });
 
-  // --- 방장 위임 ---
-  socket.on('transfer_host', ({ targetId }) => {
+  socket.on('transfer_host', (payload = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const targetId = cleanText(payload.targetId, 64);
+    if (!roomId || !targetId) return;
+
     const room = transferHost(roomId, socket.id, targetId);
-    if (room) {
-      io.to(roomId).emit('room_updated', room);
-      io.emit('room_list_updated', getRoomList());
-    }
+    if (!room) return;
+    io.to(roomId).emit('room_updated', room);
+    emitRoomLists();
   });
 
-  // --- 플레이어 추방 ---
-  socket.on('kick_player', ({ targetId }) => {
+  socket.on('kick_player', (payload = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const targetId = cleanText(payload.targetId, 64);
+    if (!roomId || !targetId) return;
+
     const result = kickPlayer(roomId, socket.id, targetId);
-    if (result.success) {
-      // 추방당한 클라이언트에게 알림
-      io.to(targetId).emit('kicked');
-      io.to(roomId).emit('room_updated', result.room);
-      io.emit('room_list_updated', getRoomList());
-      
-      // 소켓 객체에 접근해서 room에서 내보내기
-      const targetSocket = io.sockets.sockets.get(targetId);
-      if (targetSocket) {
-        targetSocket.leave(roomId);
-      }
-    }
+    if (!result.success) return;
+
+    io.to(targetId).emit('kicked');
+    const targetSocket = io.sockets.sockets.get(targetId);
+    targetSocket?.leave(roomId);
+    io.to(roomId).emit('room_updated', result.room);
+    emitRoomLists();
   });
 
-  // --- 플레이어 보드 상태 브로드캐스트 ---
-  socket.on('player_state', (state) => {
+  socket.on('player_state', (state = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const room = roomId ? getRoom(roomId) : null;
+    if (!roomId || !isAlivePlayer(room, socket.id) || !isValidBoard(state.board)) return;
 
-    // 자신을 제외한 같은 방의 다른 플레이어들에게 전송
+    const score = Number.isSafeInteger(state.score) && state.score >= 0 ? state.score : 0;
+    const lines = Number.isSafeInteger(state.lines) && state.lines >= 0 ? state.lines : 0;
     socket.to(roomId).emit('opponent_state', {
       playerId: socket.id,
-      ...state,
+      board: state.board,
+      score,
+      lines,
     });
   });
 
-  // --- 줄 제거 / 공격 ---
-  socket.on('line_clear', ({ linesCleared, isTSpin, combo }) => {
+  socket.on('line_clear', (payload = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const room = roomId ? getRoom(roomId) : null;
+    if (!roomId || !isAlivePlayer(room, socket.id)) return;
 
-    const room = getRoom(roomId);
-    if (!room) return;
-
-    // practice/sprint 모드에서는 공격을 보내지 않음
-    const roomMode = room.mode || 'vs';
-    const shouldAttack = roomMode === 'vs';
+    const linesCleared = payload.linesCleared;
+    const combo = payload.combo;
+    const isTSpin = payload.isTSpin === true;
+    if (!Number.isInteger(linesCleared) || linesCleared < 1 || linesCleared > 4) return;
+    if (!Number.isInteger(combo) || combo < 1 || combo > 100) return;
+    const now = Date.now();
+    if (now - (socket.data.lastLineClearAt || 0) < 50) return;
+    socket.data.lastLineClearAt = now;
 
     const { attack, score } = calculateAttack(linesCleared, isTSpin, combo);
+    const stats = updatePlayerStats(roomId, socket.id, score, linesCleared);
+    if (!stats) return;
 
-    // 공격이 있을 경우 대상에게 쓰레기 줄 전송 (VS 모드만)
-    if (attack > 0 && shouldAttack) {
-      const alivePlayers = room.players
-        .filter(p => p.alive)
-        .map(p => p.id);
-
+    if (attack > 0 && room.mode === 'vs') {
+      const alivePlayers = room.players.filter(player => player.alive).map(player => player.id);
       const targets = determineTargets(socket.id, alivePlayers, 'all');
       const garbageLines = generateGarbageLines(attack);
 
-      targets.forEach(targetId => {
+      for (const targetId of targets) {
         io.to(targetId).emit('receive_garbage', {
           fromId: socket.id,
           lines: garbageLines,
         });
-      });
-
-      // 공격 이펙트 알림 (UI 연출용)
+      }
       io.to(roomId).emit('attack_effect', {
         attackerId: socket.id,
         targets,
@@ -198,106 +273,58 @@ io.on('connection', (socket) => {
       });
     }
 
-    // 점수 업데이트 알림
-    io.to(roomId).emit('score_update', {
-      playerId: socket.id,
-      score,
-      linesCleared,
-    });
   });
 
-  // --- 게임 오버 ---
-  socket.on('game_over', () => {
+  socket.on('game_over', (payload = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const room = roomId ? getRoom(roomId) : null;
+    if (!roomId || !isAlivePlayer(room, socket.id)) return;
 
-    const result = playerGameOver(roomId, socket.id);
+    const player = room.players.find(candidate => candidate.id === socket.id);
+    const isSprintComplete = room.mode === 'sprint'
+      && payload.reason === 'sprint-complete'
+      && player?.lines >= 40;
+    const result = isSprintComplete
+      ? finishGame(roomId, socket.id, 'sprint-complete')
+      : playerGameOver(roomId, socket.id);
     if (!result) return;
 
-    io.to(roomId).emit('player_eliminated', { playerId: socket.id });
-
-    if (result.finished) {
-      io.to(roomId).emit('game_finished', {
-        winner: result.winner,
-        room: result.room,
-      });
-
-      // 잠시 후 방 상태 초기화
-      setTimeout(() => {
-        const resetted = resetRoom(roomId);
-        if (resetted) {
-          io.to(roomId).emit('room_updated', resetted);
-          io.emit('room_list_updated', getRoomList());
-        }
-      }, 5000);
+    if (!isSprintComplete) {
+      io.to(roomId).emit('player_eliminated', { playerId: socket.id });
     }
+    if (result.finished) emitGameFinished(roomId, result);
   });
 
-  // --- 채팅 ---
-  socket.on('chat_message', ({ message, nickname }) => {
+  socket.on('chat_message', (payload = {}) => {
     const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
+    const room = roomId ? getRoom(roomId) : null;
+    const player = room?.players.find(candidate => candidate.id === socket.id);
+    const message = cleanText(payload.message, 200);
+    if (!roomId || !player || !message) return;
+
+    const now = Date.now();
+    if (now - (socket.data.lastChatAt || 0) < 250) return;
+    socket.data.lastChatAt = now;
 
     io.to(roomId).emit('chat_message', {
       playerId: socket.id,
-      nickname,
+      nickname: player.nickname,
       message,
-      timestamp: Date.now(),
+      timestamp: now,
     });
   });
 
-  // --- 방 나가기 ---
   socket.on('leave_room', (callback) => {
-    const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) {
-      if (callback) callback();
-      return;
-    }
-    const result = leaveRoom(roomId, socket.id);
-    if (!result.deleted && result.room) {
-      io.to(roomId).emit('room_updated', result.room);
-      // 게임 중이었다면 게임오버 처리
-      if (result.room.status === 'playing') {
-        const gameResult = playerGameOver(roomId, socket.id);
-        if (gameResult?.finished) {
-          io.to(roomId).emit('game_finished', {
-            winner: gameResult.winner,
-            room: gameResult.room,
-          });
-        }
-      }
-    }
-    socket.leave(roomId);
-    io.emit('room_list_updated', getRoomList());
-    if (callback) callback();
+    handleDeparture(socket);
+    if (typeof callback === 'function') callback({ success: true });
   });
 
-  // --- 연결 해제 ---
   socket.on('disconnect', () => {
     console.log(`[연결 해제] ${socket.id}`);
-    const roomId = findRoomBySocketId(socket.id);
-    if (!roomId) return;
-
-    const result = leaveRoom(roomId, socket.id);
-    if (!result.deleted && result.room) {
-      io.to(roomId).emit('room_updated', result.room);
-
-      // 게임 중이었다면 게임오버 처리도 진행
-      if (result.room.status === 'playing') {
-        const gameResult = playerGameOver(roomId, socket.id);
-        if (gameResult?.finished) {
-          io.to(roomId).emit('game_finished', {
-            winner: gameResult.winner,
-            room: gameResult.room,
-          });
-        }
-      }
-    }
-    io.emit('room_list_updated', getRoomList());
+    handleDeparture(socket);
   });
 });
 
-// ---------- 서버 시작 ----------
 httpServer.listen(PORT, () => {
-  console.log(`\n🎮 Online Tetris Server running on http://localhost:${PORT}\n`);
+  console.log(`\nOnline Tetris Server running on http://localhost:${PORT}\n`);
 });

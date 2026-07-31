@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function ModeSelection({ onSelectMode, onOpenSettings }) {
   const [step, setStep] = useState(1);
