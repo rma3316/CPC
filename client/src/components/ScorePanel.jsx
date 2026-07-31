@@ -8,11 +8,13 @@ import { PIECE_COLORS } from '../game/constants';
  * @param {number} props.level
  * @param {number} props.totalLines
  * @param {number} props.combo
+ * @param {number} props.backToBack
  * @param {string|null} props.holdPiece - 홀드 중인 피스 이름
  * @param {string[]} props.nextPieces - 다음 피스 이름 목록 (최대 5)
  * @param {number} props.elapsedTime - 경과 시간(ms)
+ * @param {object} props.gameStats - 실시간 플레이 통계
  */
-export default function ScorePanel({ score, level, totalLines, combo, holdPiece, nextPieces, elapsedTime = 0 }) {
+export default function ScorePanel({ score, level, totalLines, combo, backToBack = 0, holdPiece, nextPieces, elapsedTime = 0, gameStats }) {
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Hold */}
@@ -45,6 +47,24 @@ export default function ScorePanel({ score, level, totalLines, combo, holdPiece,
           <span className="font-headline text-xs font-bold text-sky-600 mb-1 tracking-wider">TIME</span>
           <span className="font-headline text-xl font-bold text-sky-900 tabular-nums">{formatElapsedTime(elapsedTime)}</span>
         </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col items-center rounded-xl border border-sky-100/50 bg-white/40 p-2 shadow-sm">
+            <span className="font-headline text-[10px] font-bold tracking-wider text-sky-600">PIECES</span>
+            <span className="font-headline text-lg font-bold text-sky-900">{gameStats?.pieces || 0}</span>
+          </div>
+          <div className="flex flex-col items-center rounded-xl border border-sky-100/50 bg-white/40 p-2 shadow-sm">
+            <span className="font-headline text-[10px] font-bold tracking-wider text-sky-600">PPS</span>
+            <span className="font-headline text-lg font-bold text-sky-900">{(gameStats?.pps || 0).toFixed(2)}</span>
+          </div>
+        </div>
+
+        {backToBack > 1 && (
+          <div className="flex items-center justify-between rounded-xl border border-violet-200 bg-violet-100/80 px-3 py-2 text-violet-700 shadow-sm">
+            <span className="font-headline text-xs font-bold tracking-wider">BACK-TO-BACK</span>
+            <span className="font-headline text-lg font-black">×{backToBack}</span>
+          </div>
+        )}
 
         {combo > 1 && (
           <div className="mt-2 flex flex-col items-center bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl p-3 border border-orange-200 shadow-sm animate-pulse-fast">

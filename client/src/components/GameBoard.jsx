@@ -7,11 +7,22 @@ import {
   PIECE_GLOW_COLORS,
 } from '../game/constants';
 
+const ACTION_TONE_CLASSES = {
+  clear: 'text-sky-100',
+  tetris: 'text-cyan-200',
+  tspin: 'text-fuchsia-200',
+  perfect: 'text-amber-200',
+};
+
 /**
  * @param {object} props
  * @param {number[][]} props.board - 보드 상태
  * @param {object|null} props.currentPiece - 현재 피스
  * @param {number|null} props.ghostY - 고스트 피스 Y 위치
+ * @param {number|string|null} props.countdown - 게임 시작 카운트다운
+ * @param {{primary:string,secondary:string,tone:string}|null} props.actionMessage - 줄 제거 피드백
+ * @param {number} props.incomingGarbage - 적용 대기 중인 가비지 줄 수
+ * @param {boolean} props.isDanger - 보드 상단 위험 상태
  * @param {boolean} props.isPaused - 게임 일시정지 여부
  * @param {boolean} props.canPause - 현재 모드에서 일시정지를 허용하는지 여부
  * @param {Function} props.onPauseGame - 게임 일시정지 핸들러
@@ -19,7 +30,7 @@ import {
  * @param {Function} props.onOpenSettings - 설정 창 열기 핸들러
  * @param {Function} props.onGoHome - 홈으로 돌아가기 핸들러
  */
-export default function GameBoard({ board, currentPiece, ghostY, isPaused, canPause = true, onPauseGame, onResumeGame, onOpenSettings, onGoHome }) {
+export default function GameBoard({ board, currentPiece, ghostY, countdown, actionMessage, incomingGarbage = 0, isDanger = false, isPaused, canPause = true, onPauseGame, onResumeGame, onOpenSettings, onGoHome }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -111,7 +122,11 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, canPa
 
   return (
     <div 
-      className="relative flex items-center justify-center p-2 bg-white/20 backdrop-blur-md border-[4px] border-white/60 rounded-xl shadow-2xl shadow-sky-900/10 overflow-hidden" 
+      className={`relative flex items-center justify-center overflow-hidden rounded-xl border-[4px] bg-white/20 p-2 backdrop-blur-md shadow-2xl transition-colors duration-300 ${
+        isDanger
+          ? 'border-rose-400 shadow-rose-500/30'
+          : 'border-white/60 shadow-sky-900/10'
+      }`}
       ref={containerRef}
       tabIndex={0} 
       style={{ outline: 'none' }}
@@ -122,6 +137,40 @@ export default function GameBoard({ board, currentPiece, ghostY, isPaused, canPa
         id="main-game-canvas"
       />
       
+      {isDanger && countdown === null && !isPaused && (
+        <div className="pointer-events-none absolute top-3 z-10 rounded-full border border-rose-300 bg-rose-500/90 px-4 py-1 font-headline text-xs font-black tracking-[0.25em] text-white shadow-lg animate-pulse">
+          DANGER
+        </div>
+      )}
+
+      {incomingGarbage > 0 && (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600/90 px-3 py-2 text-white shadow-xl animate-pulse">
+          <span className="material-symbols-outlined text-lg">keyboard_double_arrow_up</span>
+          <span className="font-headline text-sm font-black">+{incomingGarbage} INCOMING</span>
+        </div>
+      )}
+
+      {actionMessage && countdown === null && !isPaused && (
+        <div className="pointer-events-none absolute inset-x-0 top-[38%] z-10 flex flex-col items-center text-center drop-shadow-[0_3px_8px_rgba(2,6,23,0.9)] animate-scale-in">
+          <span className={`font-headline text-4xl font-black tracking-wide ${ACTION_TONE_CLASSES[actionMessage.tone] || ACTION_TONE_CLASSES.clear}`}>
+            {actionMessage.primary}
+          </span>
+          {actionMessage.secondary && (
+            <span className="mt-1 font-headline text-sm font-bold tracking-widest text-white">
+              {actionMessage.secondary}
+            </span>
+          )}
+        </div>
+      )}
+
+      {countdown !== null && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-sky-950/20 backdrop-blur-[2px]">
+          <span className="font-headline text-8xl font-black text-white drop-shadow-[0_6px_18px_rgba(3,105,161,0.8)] animate-scale-in">
+            {countdown === 'GO' ? 'GO!' : countdown}
+          </span>
+        </div>
+      )}
+
       {/* 일시정지 오버레이 */}
       {isPaused && (
         <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex flex-col items-center justify-center z-20">

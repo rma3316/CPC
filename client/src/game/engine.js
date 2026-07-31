@@ -79,22 +79,48 @@ export function clearLines(board) {
   return { board: newBoard, linesCleared };
 }
 
+// 180도 회전은 공식 SRS 표준이 없으므로 보수적인 공통 킥 후보를 사용합니다.
+const ROTATION_180_KICKS = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, -1],
+  [2, 0],
+  [-2, 0],
+  [0, -2],
+];
+
 // ---------- SRS 회전 ----------
 export function rotatePiece(board, piece, direction) {
-  // direction: 1 = 시계 방향(CW), -1 = 반시계 방향(CCW)
+  // direction: 1 = 시계 방향, -1 = 반시계 방향, 2 = 180도
   const pieceName = piece.name;
   const tetromino = TETROMINOS[pieceName];
   const fromState = piece.rotation;
-  const toState = (fromState + direction + 4) % 4;
+  const normalizedDirection = direction === 2 || direction === -2 ? 2 : direction;
+  const toState = (fromState + normalizedDirection + 4) % 4;
   const newShape = tetromino.rotations[toState];
 
-  // 월킥 키 생성
+  if (normalizedDirection === 2) {
+    for (const [dx, dy] of ROTATION_180_KICKS) {
+      if (isValidPosition(board, newShape, piece.x + dx, piece.y + dy)) {
+        return {
+          ...piece,
+          shape: newShape,
+          rotation: toState,
+          x: piece.x + dx,
+          y: piece.y + dy,
+        };
+      }
+    }
+    return null;
+  }
+
+  // 90도 회전은 SRS 월킥 표를 사용합니다.
   const kickKey = `${ROTATION_NAMES[fromState]}>${ROTATION_NAMES[toState]}`;
   const kicks = pieceName === 'I' ? SRS_WALL_KICKS_I[kickKey] : SRS_WALL_KICKS[kickKey];
 
   if (!kicks) return null;
 
-  // 5개의 오프셋 테스트
   for (const [dx, dy] of kicks) {
     if (isValidPosition(board, newShape, piece.x + dx, piece.y - dy)) {
       return {
@@ -107,7 +133,7 @@ export function rotatePiece(board, piece, direction) {
     }
   }
 
-  return null; // 회전 불가
+  return null;
 }
 
 // ---------- 피스 생성 ----------

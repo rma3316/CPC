@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function ModeSelection({ onSelectMode, onOpenSettings }) {
+export default function ModeSelection({ onSelectMode, onOpenSettings, sprintBest }) {
   const [step, setStep] = useState(1);
   const [playType, setPlayType] = useState(null); // 'single' | 'multi'
 
@@ -76,7 +76,8 @@ export default function ModeSelection({ onSelectMode, onOpenSettings }) {
             {playType === 'single' ? (
               <>
                 <ModeCard 
-                  icon="timer" title="스프린트" desc="40줄 삭제 최단 시간 기록" 
+                  icon="timer" title="스프린트" desc="40줄 삭제 최단 시간 기록"
+                  badge={sprintBest ? `BEST ${formatSprintBest(sprintBest)}` : null}
                   onClick={() => handleSelectSubMode('sprint')} 
                 />
                 <ModeCard 
@@ -112,7 +113,14 @@ export default function ModeSelection({ onSelectMode, onOpenSettings }) {
   );
 }
 
-function ModeCard({ icon, title, desc, onClick, isMaterial = true }) {
+function formatSprintBest(milliseconds) {
+  const totalSeconds = milliseconds / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = (totalSeconds % 60).toFixed(2).padStart(5, '0');
+  return `${minutes}:${seconds}`;
+}
+
+function ModeCard({ icon, title, desc, badge, onClick, isMaterial = true }) {
   return (
     <button 
       className="glass-panel group relative overflow-hidden rounded-2xl p-8 flex flex-col items-center justify-center aspect-square transition-all duration-300 hover:-translate-y-2 hover:bg-white/70 shadow-md hover:shadow-xl active:scale-95"
@@ -132,6 +140,11 @@ function ModeCard({ icon, title, desc, onClick, isMaterial = true }) {
       
       <h2 className="font-headline text-2xl font-bold text-sky-950 mb-2">{title}</h2>
       <p className="font-body text-sm text-sky-800 text-center opacity-80 group-hover:opacity-100 transition-opacity whitespace-pre-line">{desc}</p>
+      {badge && (
+        <span className="mt-4 rounded-full border border-amber-200 bg-amber-100/80 px-3 py-1 font-headline text-xs font-black text-amber-700">
+          {badge}
+        </span>
+      )}
       <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-sky-400/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
     </button>
   );

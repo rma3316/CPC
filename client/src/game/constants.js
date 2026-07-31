@@ -42,8 +42,28 @@ export const MAX_LOCK_RESETS = 15;
 /** DAS - Delayed Auto Shift (ms) */
 export const DAS = 133;
 
-/** ARR - Auto Repeat Rate (ms) */
+/** ARR - Auto Repeat Rate (ms), 0이면 즉시 벽까지 이동 */
 export const ARR = 10;
+
+/** SDF - Soft Drop Factor */
+export const SDF = 20;
+
+/** 무한 SDF 표식 - 소프트 드롭 시 잠그지 않고 즉시 바닥까지 이동 */
+export const INFINITE_SDF = 0;
+
+/** 입력 감도별 허용 범위 (SDF 무한은 별도 토글로 설정) */
+export const HANDLING_RANGES = Object.freeze({
+  das: Object.freeze({ min: 50, max: 300 }),
+  arr: Object.freeze({ min: 0, max: 100 }),
+  sdf: Object.freeze({ min: 1, max: 40 }),
+});
+
+/** 기본 입력 감도 */
+export const DEFAULT_HANDLING = Object.freeze({
+  das: DAS,
+  arr: ARR,
+  sdf: SDF,
+});
 
 /** 서버 URL */
 export const SERVER_URL = 'http://localhost:3001';
@@ -54,9 +74,11 @@ export const KEY_BINDINGS = {
   MOVE_RIGHT: 'ArrowRight',
   SOFT_DROP: 'ArrowDown',
   HARD_DROP: ' ',             // Space
-  ROTATE_CW: 'ArrowUp',      // 시계 방향 회전
+  ROTATE_CW: 'ArrowUp',       // 시계 방향 회전
   ROTATE_CCW: 'z',            // 반시계 방향 회전
+  ROTATE_180: 'a',            // 180도 회전
   HOLD: 'c',                  // Hold
+  PAUSE: 'Escape',            // 일시정지
   RESET: 'r',                 // 게임 초기화
 };
 

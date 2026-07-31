@@ -3,6 +3,9 @@
 //  담당: 개발자 A (게임 엔진 담당)
 // ============================================================
 
+// 클라이언트 수신 큐와 동일한 단일 공격 상한입니다.
+export const MAX_ATTACK_LINES = 20;
+
 /**
  * 줄 제거 수에 따른 공격(쓰레기) 줄 수 계산
  *
@@ -14,9 +17,17 @@
  * @param {number} linesCleared - 동시에 제거된 줄 수
  * @param {boolean} isTSpin - T-Spin 여부
  * @param {number} combo - 현재 콤보 카운트
+ * @param {boolean} isBackToBack - 직전 고난도 클리어와 연속되었는지 여부
+ * @param {boolean} isPerfectClear - 줄 제거 후 보드가 완전히 비었는지 여부
  * @returns {{ attack: number, score: number }}
  */
-export function calculateAttack(linesCleared, isTSpin = false, combo = 0) {
+export function calculateAttack(
+  linesCleared,
+  isTSpin = false,
+  combo = 0,
+  isBackToBack = false,
+  isPerfectClear = false,
+) {
   let attack = 0;
   let score = 0;
 
@@ -47,6 +58,18 @@ export function calculateAttack(linesCleared, isTSpin = false, combo = 0) {
     score *= 1.5;
   }
 
+  // Back-to-Back 보너스
+  if (isBackToBack && (isTSpin || linesCleared === 4)) {
+    attack += 1;
+    score = Math.floor(score * 1.5);
+  }
+
+  // Perfect Clear는 보드 전체를 비운 고난도 플레이이므로 큰 보너스를 줍니다.
+  if (isPerfectClear) {
+    attack += 10;
+    score += 2000;
+  }
+
   // 콤보 보너스 (2콤보부터)
   if (combo >= 2) {
     const comboBonus = Math.floor(combo / 2);
@@ -55,7 +78,7 @@ export function calculateAttack(linesCleared, isTSpin = false, combo = 0) {
   }
 
   return {
-    attack: Math.floor(attack),
+    attack: Math.min(MAX_ATTACK_LINES, Math.floor(attack)),
     score: Math.floor(score),
   };
 }

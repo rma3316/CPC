@@ -35,6 +35,22 @@ function showSocketError(result) {
   window.alert(message);
 }
 
+function readSprintBest() {
+  try {
+    const saved = Number(window.localStorage.getItem('tetris_sprint_best'));
+    return Number.isFinite(saved) && saved > 0 ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatResultTime(milliseconds) {
+  const totalSeconds = Math.max(0, milliseconds) / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = (totalSeconds % 60).toFixed(2).padStart(5, '0');
+  return `${minutes}:${seconds}`;
+}
+
 /**
  * 앱 상태 흐름:
  *   'lobby' → 'waiting' → 'playing' → 'result' → 'waiting'
@@ -48,6 +64,8 @@ export default function App() {
   const [allReady, setAllReady] = useState(false);
   const [gameResult, setGameResult] = useState(null);
   const [attackNotice, setAttackNotice] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [sprintBest, setSprintBest] = useState(readSprintBest);
 
   const handleKicked = useCallback(() => {
     alert("방장에 의해 추방되었습니다.");
@@ -75,7 +93,19 @@ export default function App() {
     leaveRoom,
   } = useSocket({ onKickedCallback: handleKicked });
 
-  const { keys, updateKey, volume, setVolume, fontTheme, setFontTheme } = useSettings();
+  const {
+    keys,
+    updateKey,
+    resetKeys,
+    handling,
+    updateHandling,
+    applyHandlingPreset,
+    resetHandling,
+    volume,
+    setVolume,
+    fontTheme,
+    setFontTheme,
+  } = useSettings();
   const playSound = useGameSounds(volume);
 
   const handleLineCleared = useCallback((data) => {
@@ -84,15 +114,30 @@ export default function App() {
     }
   }, [gameMode, playType, sendLineCleared]);
 
-  const handleTetrisGameOver = useCallback(({ reason } = {}) => {
+  const handleTetrisGameOver = useCallback(({ reason, mode, stats } = {}) => {
     if (playType === 'multi') {
       sendGameOver({ reason });
       return;
     }
 
-    setGameResult({ nickname: '나', reason });
+    let personalBest = sprintBest;
+    let isNewRecord = false;
+    if (mode === 'sprint' && reason === 'sprint-complete' && stats?.elapsedTime > 0) {
+      if (personalBest === null || stats.elapsedTime < personalBest) {
+        personalBest = stats.elapsedTime;
+        isNewRecord = true;
+        setSprintBest(personalBest);
+        try {
+          window.localStorage.setItem('tetris_sprint_best', String(personalBest));
+        } catch {
+          // 저장소가 비활성화되어도 현재 결과 화면에는 기록을 표시합니다.
+        }
+      }
+    }
+
+    setGameResult({ nickname: '나', reason, stats, personalBest, isNewRecord });
     setScreen('result');
-  }, [playType, sendGameOver]);
+  }, [playType, sendGameOver, sprintBest]);
 
   const handleStateUpdate = useCallback((state) => {
     if (playType === 'multi') sendPlayerState(state);
@@ -109,7 +154,13 @@ export default function App() {
     nextPieces,
     isGameOver,
     combo,
+    backToBack,
+    actionMessage,
+    incomingGarbage,
+    isDanger,
+    gameStats,
     elapsedTime,
+    countdown,
     ghostY,
     startGame: tetrisStartGame,
     receiveGarbage,
@@ -123,7 +174,10 @@ export default function App() {
     onStateUpdate: handleStateUpdate,
     onSound: playSound,
     keys,
+    handling,
     canReset: playType === 'single',
+    canPause: playType === 'single' || gameMode === 'practice',
+    inputEnabled: !isSettingsOpen,
   });
 
   // --- 소켓 이벤트 리스너 ---
@@ -256,8 +310,6 @@ export default function App() {
     }
   };
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
   const handleGoHome = useCallback(async () => {
     if (screen === 'playing') stopGame();
     if (playType === 'multi' && (screen === 'waiting' || screen === 'playing')) {
@@ -278,7 +330,8 @@ export default function App() {
     if (screen === 'mode') {
       return (
         <ModeSelection 
-          onSelectMode={handleSelectMode} 
+          onSelectMode={handleSelectMode}
+          sprintBest={sprintBest}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       );
@@ -317,6 +370,7 @@ export default function App() {
     }
 
     if (screen === 'result') {
+      const resultStats = gameResult?.stats || gameStats;
       return (
         <div className="bg-atmosphere min-h-screen w-full flex flex-col items-center justify-center relative font-body text-sky-950 overflow-hidden" style={{ margin: 0, padding: 0 }}>
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-200/50 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
@@ -326,6 +380,11 @@ export default function App() {
             <h1 className="font-headline text-5xl font-bold text-sky-950 mb-8 drop-shadow-md">
               {gameResult?.reason === 'sprint-complete' ? 'SPRINT COMPLETE' : 'GAME OVER'}
             </h1>
+            {gameResult?.isNewRecord && (
+              <div className="mb-5 rounded-full border border-amber-300 bg-amber-100 px-5 py-2 font-headline text-sm font-black tracking-wider text-amber-700 shadow-md animate-scale-in">
+                NEW PERSONAL BEST!
+              </div>
+            )}
             {gameResult?.nickname && playType === 'multi' && (
               <div className="flex flex-col items-center bg-white/40 border border-sky-100 rounded-2xl p-6 w-full mb-8 shadow-sm">
                 <span className="text-sm font-bold text-sky-600 mb-1">🏆 승자</span>
@@ -335,22 +394,47 @@ export default function App() {
             <div className="w-full flex flex-col gap-4 mb-10">
               <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
                 <span className="font-semibold text-sky-800">MY SCORE</span>
-                <span className="font-headline text-2xl font-bold text-sky-600">{score.toLocaleString()}</span>
+                <span className="font-headline text-2xl font-bold text-sky-600">{resultStats.score.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
                 <span className="font-semibold text-sky-800">LINES</span>
-                <span className="font-headline text-xl font-bold text-sky-700">{totalLines}</span>
+                <span className="font-headline text-xl font-bold text-sky-700">{resultStats.lines}</span>
               </div>
               <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
                 <span className="font-semibold text-sky-800">LEVEL</span>
-                <span className="font-headline text-xl font-bold text-sky-700">{level}</span>
+                <span className="font-headline text-xl font-bold text-sky-700">{resultStats.level}</span>
               </div>
               {gameMode === 'sprint' && (
-                <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
-                  <span className="font-semibold text-sky-800">TIME</span>
-                  <span className="font-headline text-xl font-bold text-sky-700">{(elapsedTime / 1000).toFixed(1)}s</span>
-                </div>
+                <>
+                  <div className="flex justify-between items-center bg-white/30 px-6 py-4 rounded-xl border border-sky-100/50">
+                    <span className="font-semibold text-sky-800">TIME</span>
+                    <span className="font-headline text-xl font-bold text-sky-700">{formatResultTime(resultStats.elapsedTime)}</span>
+                  </div>
+                  {(gameResult?.personalBest || sprintBest) && (
+                    <div className="flex justify-between items-center bg-amber-50/70 px-6 py-3 rounded-xl border border-amber-200">
+                      <span className="font-semibold text-amber-700">PERSONAL BEST</span>
+                      <span className="font-headline text-lg font-black text-amber-600">
+                        {formatResultTime(gameResult?.personalBest || sprintBest)}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ['PIECES', resultStats.pieces],
+                  ['PPS', resultStats.pps.toFixed(2)],
+                  ['MAX COMBO', resultStats.maxCombo],
+                  ['T-SPIN', resultStats.tSpins],
+                  ['TETRIS', resultStats.tetrises],
+                  ['PERFECT', resultStats.perfectClears],
+                ].map(([label, value]) => (
+                  <div className="flex flex-col items-center rounded-lg border border-sky-100 bg-white/30 px-2 py-2" key={label}>
+                    <span className="text-[10px] font-bold tracking-wide text-sky-600">{label}</span>
+                    <span className="font-headline text-lg font-black text-sky-900">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="flex w-full gap-4">
               <button className="glass-button flex-1 h-14 rounded-xl font-bold text-lg" onClick={handleBackToWaiting}>
@@ -404,7 +488,9 @@ export default function App() {
               level={level}
               totalLines={totalLines}
               combo={combo}
+              backToBack={backToBack}
               elapsedTime={elapsedTime}
+              gameStats={gameStats}
               holdPiece={holdPiece}
               nextPieces={nextPieces}
             />
@@ -415,7 +501,11 @@ export default function App() {
             <GameBoard 
               board={board} 
               currentPiece={currentPiece} 
-              ghostY={ghostY} 
+              ghostY={ghostY}
+              countdown={countdown}
+              actionMessage={actionMessage}
+              incomingGarbage={incomingGarbage}
+              isDanger={isDanger}
               isPaused={isPaused}
               canPause={playType === 'single' || gameMode === 'practice'}
               onPauseGame={pauseGame}
@@ -471,10 +561,16 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)} 
         keys={keys}
         updateKey={updateKey}
+        resetKeys={resetKeys}
+        handling={handling}
+        updateHandling={updateHandling}
+        applyHandlingPreset={applyHandlingPreset}
+        resetHandling={resetHandling}
         volume={volume}
         setVolume={setVolume}
         fontTheme={fontTheme}
         setFontTheme={setFontTheme}
+        onPlaySound={playSound}
       />
     </>
   );

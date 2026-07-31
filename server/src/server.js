@@ -251,8 +251,27 @@ io.on('connection', (socket) => {
     if (now - (socket.data.lastLineClearAt || 0) < 50) return;
     socket.data.lastLineClearAt = now;
 
-    const { attack, score } = calculateAttack(linesCleared, isTSpin, combo);
-    const stats = updatePlayerStats(roomId, socket.id, score, linesCleared);
+    const player = room.players.find(candidate => candidate.id === socket.id);
+    const qualifiesForBackToBack = linesCleared === 4 || isTSpin;
+    const previousBackToBack = player?.backToBack || 0;
+    const isBackToBack = qualifiesForBackToBack && previousBackToBack > 0;
+    const nextBackToBack = qualifiesForBackToBack ? previousBackToBack + 1 : 0;
+
+    // B2B는 서버 상태로 계산하고, 서버가 보드를 검증할 수 없는 PC 보너스는 공격에 반영하지 않는다.
+    const { attack, score } = calculateAttack(
+      linesCleared,
+      isTSpin,
+      combo,
+      isBackToBack,
+      false,
+    );
+    const stats = updatePlayerStats(
+      roomId,
+      socket.id,
+      score,
+      linesCleared,
+      nextBackToBack,
+    );
     if (!stats) return;
 
     if (attack > 0 && room.mode === 'vs') {

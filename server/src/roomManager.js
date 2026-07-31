@@ -35,6 +35,7 @@ export function joinRoom(roomId, socketId, nickname) {
     alive: true,
     score: 0,
     lines: 0,
+    backToBack: 0,
   });
 
   if (!room.hostId) room.hostId = socketId;
@@ -81,21 +82,30 @@ export function startGame(roomId) {
     player.alive = true;
     player.score = 0;
     player.lines = 0;
+    player.backToBack = 0;
   }
   return serializeRoom(room);
 }
 
-export function updatePlayerStats(roomId, socketId, scoreDelta, linesCleared) {
+export function updatePlayerStats(
+  roomId,
+  socketId,
+  scoreDelta,
+  linesCleared,
+  backToBack = 0,
+) {
   const room = rooms.get(roomId);
   const player = room?.players.get(socketId);
   if (!room || room.status !== 'playing' || !player?.alive) return null;
 
   player.score += scoreDelta;
   player.lines += linesCleared;
+  player.backToBack = Number.isInteger(backToBack) && backToBack >= 0 ? backToBack : 0;
   return {
     playerId: socketId,
     totalScore: player.score,
     totalLines: player.lines,
+    backToBack: player.backToBack,
   };
 }
 
@@ -143,6 +153,7 @@ export function resetRoom(roomId) {
     player.alive = true;
     player.score = 0;
     player.lines = 0;
+    player.backToBack = 0;
   }
   return serializeRoom(room);
 }
